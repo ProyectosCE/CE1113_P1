@@ -1,0 +1,56 @@
+# =========================
+# Yocto / BitBake
+# =========================
+
+# Build output
+build/
+build-*/
+
+# BitBake temporary files
+tmp/
+tmp-*/
+
+# Downloads
+downloads/
+downloads-*/
+
+# Shared state
+sstate-cache/
+sstate-cache-*/
+
+# Build history
+buildhistory/
+
+# Package feeds
+deploy/
+
+# BitBake cache
+.cache/
+
+# =========================
+# Editors
+# =========================
+
+.vscode/
+.idea/
+
+# Vim
+*.swp
+*.swo
+
+# Backup files
+*~
+*.bak
+
+# =========================
+# Python
+# =========================
+
+__pycache__/
+*.py[cod]
+
+# =========================
+# Logs
+# =========================
+
+*.log
