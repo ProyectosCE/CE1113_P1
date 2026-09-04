@@ -129,7 +129,6 @@ jobs:
             "src"
             "yocto"
             ".githooks"
-            "tests"
           )
 
           required_files=(
