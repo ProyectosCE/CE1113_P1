@@ -23,7 +23,7 @@ deploy/
 
 # BitBake cache
 .cache/
-emuARM/cache/
+yocto/emuARM/cache/
 
 # Editors
 .vscode/
