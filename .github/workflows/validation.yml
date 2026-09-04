@@ -129,7 +129,6 @@ jobs:
             "src"
             "yocto"
             ".githooks"
-            ".github/PULL_REQUEST_TEMPLATE"
             "tests"
           )
 
