@@ -1,0 +1,165 @@
+name: Validación del repositorio
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  repository-validation:
+    name: Validar estructura y archivos
+    runs-on: ubuntu-latest
+
+    steps:
+      # Obtener el contenido del repositorio
+      - name: Obtener repositorio
+        uses: actions/checkout@v6
+
+      # Validar archivos temporales o generados
+      - name: Validar archivos temporales o generados
+        shell: bash
+        run: |
+          echo "Verificando archivos temporales o generados..."
+
+          errors=0
+
+          while IFS= read -r -d '' file; do
+            case "$file" in
+              *.log|\
+              *.tmp|\
+              *.bak|\
+              *.swp|\
+              *.swo|\
+              *~|\
+              */__pycache__/*|\
+              */.cache/*|\
+              */cache/*)
+                echo "::error file=$file::Archivo temporal o generado detectado."
+                errors=1
+                ;;
+            esac
+          done < <(git ls-files -z)
+
+          if [ "$errors" -ne 0 ]; then
+            echo ""
+            echo "Se encontraron archivos temporales o generados dentro del repositorio."
+            exit 1
+          fi
+
+          echo "Validación completada correctamente."
+
+      # Validar tamaño máximo de archivos
+      - name: Validar tamaño máximo de archivos
+        shell: bash
+        run: |
+          echo "Verificando tamaño de archivos..."
+
+          max_size=$((10 * 1024 * 1024))
+          errors=0
+
+          while IFS= read -r -d '' file; do
+            if [ -f "$file" ]; then
+              size=$(stat -c%s "$file")
+
+              if [ "$size" -gt "$max_size" ]; then
+                echo "::error file=$file::El archivo supera el límite permitido de 10 MiB."
+                errors=1
+              fi
+            fi
+          done < <(git ls-files -z)
+
+          if [ "$errors" -ne 0 ]; then
+            echo ""
+            echo "Se encontraron archivos mayores a 10 MiB."
+            exit 1
+          fi
+
+          echo "Validación completada correctamente."
+
+      # Validar nombres básicos de archivos y carpetas
+      - name: Validar nombres de archivos y carpetas
+        shell: bash
+        run: |
+          echo "Verificando nombres de archivos y carpetas..."
+
+          errors=0
+
+          while IFS= read -r -d '' file; do
+
+            # No se permiten espacios.
+            if [[ "$file" == *" "* ]]; then
+              echo "::error file=$file::No se permiten espacios en nombres de archivos o carpetas."
+              errors=1
+            fi
+
+            # Caracteres permitidos:
+            # letras, números, punto, guion bajo, guion y slash.
+            if [[ ! "$file" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+              echo "::error file=$file::El nombre contiene caracteres no permitidos."
+              errors=1
+            fi
+
+          done < <(git ls-files -z)
+
+          if [ "$errors" -ne 0 ]; then
+            echo ""
+            echo "Se encontraron nombres de archivos o carpetas que no cumplen el estándar."
+            exit 1
+          fi
+
+          echo "Validación completada correctamente."
+
+      # Validar estructura base del repositorio
+      - name: Validar estructura base
+        shell: bash
+        run: |
+          echo "Verificando estructura base del repositorio..."
+
+          errors=0
+
+          required_directories=(
+            ".github"
+            ".github/workflows"
+            "docs"
+            "docs/development"
+            "src"
+            "yocto"
+            ".githooks"
+          )
+
+          required_files=(
+            ".gitignore"
+            "README.md"
+            "LICENSE"
+          )
+
+          for directory in "${required_directories[@]}"; do
+            if [ ! -d "$directory" ]; then
+              echo "::error::No se encontró el directorio requerido: $directory"
+              errors=1
+            fi
+          done
+
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "::error::No se encontró el archivo requerido: $file"
+              errors=1
+            fi
+          done
+
+          if [ "$errors" -ne 0 ]; then
+            echo ""
+            echo "La estructura base del repositorio no cumple con lo esperado."
+            exit 1
+          fi
+
+          echo "Estructura base validada correctamente."
+
+      # Resultado final
+      - name: Resultado de validación
+        run: |
+          echo "Todas las validaciones del repositorio finalizaron correctamente."

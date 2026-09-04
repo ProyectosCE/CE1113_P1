@@ -1,0 +1,41 @@
+#!/bin/sh
+
+COMMIT_MSG_FILE="$1"
+
+COMMIT_MSG=$(head -n 1 "$COMMIT_MSG_FILE")
+
+# Permitir commits automáticos de merge
+case "$COMMIT_MSG" in
+    Merge*)
+        exit 0
+        ;;
+esac
+
+# Validar estándar de commits del proyecto
+PATTERN='^\[(ADD|UPDATE|FIX|DEL|DOCS|TEST|REFACTOR)\](\[(ADD|UPDATE|FIX|DEL|DOCS|TEST|REFACTOR)\])? .+'
+
+if ! echo "$COMMIT_MSG" | grep -Eq "$PATTERN"; then
+
+    echo ""
+    echo "ERROR: El mensaje del commit no cumple el estándar del proyecto."
+    echo ""
+
+    echo "Formato permitido:"
+    echo "  [TAG] Descripción breve"
+    echo "  [TAG][TAG] Descripción breve"
+    echo ""
+
+    echo "Tags permitidos:"
+    echo "  ADD UPDATE FIX DEL DOCS TEST REFACTOR"
+    echo ""
+
+    echo "Ejemplos:"
+    echo "  [ADD] Agrega módulo de control de motores"
+    echo "  [UPDATE][TEST] Actualiza control de motores y sus pruebas"
+    echo ""
+
+    exit 1
+
+fi
+
+exit 0
