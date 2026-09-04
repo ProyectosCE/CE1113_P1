@@ -1,0 +1,58 @@
+#!/bin/sh
+
+MAX_SIZE=$((10 * 1024 * 1024))
+ERRORS=0
+
+echo "Ejecutando validaciones pre-commit..."
+
+FILES=$(git diff --cached --name-only --diff-filter=ACMR)
+
+# Archivos temporales o generados
+for FILE in $FILES; do
+    case "$FILE" in
+        *.log|*.tmp|*.bak|*.swp|*.swo|*~|*/__pycache__/*|*/.cache/*|*/cache/*)
+            echo "ERROR: Archivo temporal o generado detectado:"
+            echo "  $FILE"
+            ERRORS=1
+            ;;
+    esac
+done
+
+# Archivos demasiado grandes
+for FILE in $FILES; do
+    if [ -f "$FILE" ]; then
+        SIZE=$(wc -c < "$FILE")
+
+        if [ "$SIZE" -gt "$MAX_SIZE" ]; then
+            echo "ERROR: Archivo mayor a 10 MiB:"
+            echo "  $FILE"
+            ERRORS=1
+        fi
+    fi
+done
+
+# Nombres básicos de archivos y carpetas
+for FILE in $FILES; do
+    if echo "$FILE" | grep -q ' '; then
+        echo "ERROR: No se permiten espacios en nombres de archivos o carpetas:"
+        echo "  $FILE"
+        ERRORS=1
+    fi
+
+    if ! echo "$FILE" | grep -Eq '^[A-Za-z0-9._/-]+$'; then
+        echo "ERROR: Nombre de archivo o carpeta con caracteres no permitidos:"
+        echo "  $FILE"
+        echo "Se permiten letras, números, '.', '_', '-' y '/'."
+        ERRORS=1
+    fi
+done
+
+# Resultado
+if [ "$ERRORS" -ne 0 ]; then
+    echo ""
+    echo "El commit fue cancelado. Corregir los problemas indicados."
+    exit 1
+fi
+
+echo "Validaciones pre-commit completadas correctamente."
+exit 0
