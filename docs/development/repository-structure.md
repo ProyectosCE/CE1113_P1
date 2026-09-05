@@ -21,9 +21,9 @@ CE1113_P1/
 │   └── development/
 │
 ├── src/
-│   ├── main.c
-│   ├── include/
-│   └── core/
+│
+├── docker/
+│   └── qemu/
 │
 ├── tests/
 │   ├── unit/
@@ -83,38 +83,47 @@ Solo se agregarán documentos cuando sean necesarios para el proyecto.
 
 ### `src/`
 
-Contiene el código fuente principal del proyecto desarrollado en C y/o C++.
+Contiene todo el código fuente desarrollado para el sistema.
+
+Dentro de esta carpeta se agruparán los distintos componentes de software del proyecto, independientemente del lenguaje utilizado.
+
+Aquí se podrá incluir código relacionado con:
+
+* Software embebido desarrollado en C.
+* Biblioteca dinámica de acceso al hardware.
+* Aplicación principal del robot.
+* Servidor desarrollado en Python.
+* Integración entre Python y la biblioteca en C.
+* Interfaz web responsive.
+* Archivos HTML, CSS, JavaScript o TypeScript.
+
+La organización interna de `src/` podrá evolucionar conforme se definan los distintos componentes y responsabilidades del software.
+
+El objetivo es mantener todo el código del producto dentro de un único directorio y evitar colocar código fuente directamente en la raíz del repositorio.
+
+---
+
+### `docker/`
+
+Contiene archivos relacionados con los entornos de desarrollo basados en Docker.
 
 ```text
-src/
-├── main.c
-├── include/
-└── core/
+docker/
+└── qemu/
 ```
 
-#### `main.c`
+La carpeta `qemu/` se utilizará para definir un entorno reproducible destinado a la ejecución de QEMU para arquitectura ARM64.
 
-Contiene el punto de entrada principal de la aplicación.
+Este entorno permitirá que los integrantes del equipo puedan ejecutar y verificar software compilado para AArch64 sin necesidad de instalar y configurar QEMU directamente en sus sistemas.
 
-#### `include/`
+Dentro de esta carpeta podrán existir archivos como:
 
-Contiene los archivos de cabecera del proyecto, principalmente archivos `.h` o `.hpp`.
+* `Dockerfile`.
+* Scripts de inicialización.
+* Scripts para ejecutar QEMU.
+* Archivos de configuración relacionados con el entorno emulado.
 
-Estos archivos pueden definir:
-
-* Interfaces.
-* Funciones.
-* Estructuras de datos.
-* Constantes.
-* Tipos compartidos entre diferentes módulos.
-
-#### `core/`
-
-Contiene la lógica principal del robot.
-
-Aquí se ubicarán componentes relacionados con comportamiento, navegación, control y otras funciones principales que no dependan directamente de una implementación específica de hardware.
-
-La organización interna de `core/` podrá cambiar conforme se defina la arquitectura del software.
+Docker será utilizado únicamente como herramienta de desarrollo en el host y no formará parte del sistema operativo final que se ejecute en la Raspberry Pi.
 
 ---
 
@@ -196,13 +205,14 @@ Contiene la licencia utilizada por el proyecto.
 
 Para mantener el repositorio ordenado, se seguirán estas reglas:
 
-1. El código principal en C/C++ debe mantenerse dentro de `src/`.
+1. Todo el código fuente del sistema debe mantenerse dentro de `src/`.
 2. Las pruebas deben mantenerse dentro de `tests/`.
 3. La documentación debe mantenerse dentro de `docs/`.
 4. Los archivos específicos de Yocto deben mantenerse dentro de `yocto/`.
-5. Los archivos generados, temporales o de caché no deben subirse al repositorio.
-6. No se deben crear nuevas carpetas sin que exista una necesidad concreta dentro del proyecto.
-7. La estructura podrá ampliarse conforme se definan nuevos componentes del sistema.
+5. Los archivos relacionados con entornos Docker deben mantenerse dentro de `docker/`.
+6. Los archivos generados, temporales o de caché no deben subirse al repositorio.
+7. No se deben crear nuevas carpetas sin que exista una necesidad concreta dentro del proyecto.
+8. La estructura podrá ampliarse conforme se definan nuevos componentes del sistema.
 
 ---
 
@@ -222,9 +232,9 @@ Dependiendo de las necesidades del proyecto, podrá existir un archivo principal
 | --------------------- | ---------------------------------------- |
 | `.github/`            | Configuración y automatización de GitHub |
 | `docs/`               | Documentación del proyecto               |
-| `src/`                | Código fuente principal                  |
-| `src/include/`        | Archivos de cabecera                     |
-| `src/core/`           | Lógica principal del robot               |
+| `src/`                | Todo el código fuente del sistema        |
+| `docker/`             | Entornos de desarrollo basados en Docker |
+| `docker/qemu/`        | Entorno Docker para emulación ARM64      |
 | `tests/unit/`         | Pruebas unitarias                        |
 | `tests/integration/`  | Pruebas de integración                   |
 | `yocto/`              | Archivos relacionados con Yocto          |

@@ -1,45 +1,167 @@
-# Yocto / BitBake
-# Build output
-build/
-build-*/
+# Operating system / editors
+# Windows
+Thumbs.db
+Desktop.ini
 
-# BitBake temporary files
-tmp/
-tmp-*/
+# macOS
+.DS_Store
 
-# Downloads
-downloads/
-downloads-*/
-
-# Shared state
-sstate-cache/
-sstate-cache-*/
-
-# Build history
-buildhistory/
-
-# Package feeds
-deploy/
-
-# BitBake cache
-.cache/
-yocto/emuARM/cache/
-
-# Editors
+# Visual Studio Code
 .vscode/
+
+# JetBrains IDEs
 .idea/
 
-# Vim
+# Temporary editor files
 *.swp
 *.swo
-
-# Backup files
 *~
-*.bak
+*.tmp
+*.temp
+
+# C / C++ compilation artifacts
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.so
+*.so.*
+*.d
+*.elf
+*.out
+*.map
+
+# Debug information
+*.dSYM/
+*.su
+
+# CMake
+build/
+build-*/
+cmake-build-*/
+
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+install_manifest.txt
+
+Testing/
 
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Type checking / linting caches
+.mypy_cache/
+.ruff_cache/
+
+# Flask
+# Local Flask instance data
+instance/
+
+# Local environment variables / secrets
+.env
+.env.*
+!.env.example
+
+.flaskenv
+
+# Docker
+# Docker itself stores images/containers outside the repository.
+# Only local override/configuration files should be ignored here.
+docker-compose.override.yml
+
+# QEMU
+# Persistent local VM state
+.qemu/
+
+# Virtual disks and VM images
+*.qcow
+*.qcow2
+*.raw
+
+# QEMU runtime files
+*.pid
+*.sock
+
+# QEMU integration test artifacts
+tests/integration/qemu/hello-arm64
+tests/integration/qemu/dynamic-app-arm64
+tests/integration/qemu/libaurabot-smoke.so
+
+# Yocto / BitBake
+# Build output
+yocto/**/tmp/
+yocto/**/tmp-*/
+
+# Shared state cache
+yocto/**/sstate-cache/
+
+# Download cache
+yocto/**/downloads/
+
+# BitBake parser / persistent cache
+yocto/**/cache/
+
+# Build history
+yocto/**/buildhistory/
+
+# BitBake runtime files
+yocto/**/bitbake-cookerdaemon.log
+yocto/**/bitbake.lock
+yocto/**/bitbake.sock
+
+# Generated SDK / deployment artifacts
+yocto/**/deploy/
+yocto/**/sdk/
+
+# Common generated Yocto images
+*.wic
+*.wic.gz
+*.wic.bz2
+*.wic.xz
+*.ext2
+*.ext3
+*.ext4
+*.squashfs
+*.tar.bz2
+*.tar.gz
+*.tar.xz
 
 # Logs
 *.log
+logs/
+
+# Core dumps / runtime artifacts
+core
+core.*
+*.core
+
+# Local project files
+# Local credentials or machine-specific configuration
+*.local
+*.secret
