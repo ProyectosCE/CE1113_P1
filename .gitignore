@@ -43,3 +43,6 @@ __pycache__/
 
 # Logs
 *.log
+
+# QEMU local virtual machine state
+.qemu/
