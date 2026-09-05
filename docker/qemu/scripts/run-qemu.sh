@@ -118,5 +118,5 @@ exec qemu-system-aarch64 \
     -device virtio-blk-pci,drive=cloudinit \
     -device virtio-rng-pci \
     -netdev user,id=net0,hostfwd=tcp::${SSH_PORT}-:22,hostfwd=tcp::${FLASK_PORT}-:5000,hostfwd=tcp::${GDB_PORT}-:1234 \
-    -device virtio-net-pci,netdev=net0 \
+    -device virtio-net-pci,netdev=net0,romfile= \
     -nographic

@@ -34,6 +34,7 @@ RUN apt-get update && \
         cloud-image-utils \
         gcc-aarch64-linux-gnu \
         binutils-aarch64-linux-gnu \
+        libc6-dev-arm64-cross \
         gdb-multiarch && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
