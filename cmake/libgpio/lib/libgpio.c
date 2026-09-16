@@ -55,13 +55,13 @@ int digitalRead(int pin){
 
 //pin solo 0 o 1
 
-int blink(int pin, int freq, int duration){
-    if(freq <= 0 ){
-        return -1;
-    }
-    int periodo = 1000000000/freq;
-    int duty = periodo/2;
-    
+int setPWM(int pin, int freq, int duty_percent) {
+    if (freq <= 0) return -1;
+    if (duty_percent < 0) duty_percent = 0;
+    if (duty_percent > 100) duty_percent = 100;
+
+    int periodo = 1000000000 / freq;
+    int duty = (periodo * duty_percent) / 100;
 
     char comando_pwm_set[100];
     char comando_pwm_period[100];
@@ -71,19 +71,12 @@ int blink(int pin, int freq, int duration){
     snprintf(comando_pwm_set, sizeof(comando_pwm_set), "echo %d > /sys/class/pwm/pwmchip%d/export", pin, pin);
     snprintf(comando_pwm_period, sizeof(comando_pwm_period), "echo %d > /sys/class/pwm/pwmchip%d/pwm%d/period", periodo, pin, pin);
     snprintf(comando_pwm_duty, sizeof(comando_pwm_duty), "echo %d > /sys/class/pwm/pwmchip%d/pwm%d/duty_cycle", duty, pin, pin);
-
-    snprintf(comando_pwm_en, sizeof(comando_pwm_en), "echo 1 > /sys/class/pwm/pwmchip%d/pwm%d/enable",pin, pin);
-
+    snprintf(comando_pwm_en, sizeof(comando_pwm_en), "echo %d > /sys/class/pwm/pwmchip%d/pwm%d/enable", (duty_percent > 0) ? 1 : 0, pin, pin);
 
     system(comando_pwm_set);
     system(comando_pwm_period);
     system(comando_pwm_duty);
     system(comando_pwm_en);
-    
-    usleep(duration*1000);
-    snprintf(comando_pwm_en, sizeof(comando_pwm_en), "echo 0 > /sys/class/pwm/pwmchip%d/pwm%d/enable",pin, pin);
-    system(comando_pwm_en);
 
     return 0;
-
 }
