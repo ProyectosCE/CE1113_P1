@@ -27,13 +27,10 @@ int digitalWrite(int pin, int value){
     if(value != 0 && value != 1){
         return -1;
     }
-
     snprintf(comando_set_value, sizeof(comando_set_value), "echo %d > %s/gpio%d/value", value, PATH, pin+base);
     int resultado = system(comando_set_value);
     return resultado;
-
 }
-
 
 
 int digitalRead(int pin){
@@ -59,11 +56,9 @@ int digitalRead(int pin){
 //pin solo 0 o 1
 
 int blink(int pin, int freq, int duration){
-
     if(freq <= 0 ){
         return -1;
     }
-    
     int periodo = 1000000000/freq;
     int duty = periodo/2;
     
@@ -80,22 +75,15 @@ int blink(int pin, int freq, int duration){
     snprintf(comando_pwm_en, sizeof(comando_pwm_en), "echo 1 > /sys/class/pwm/pwmchip%d/pwm%d/enable",pin, pin);
 
 
-
     system(comando_pwm_set);
     system(comando_pwm_period);
     system(comando_pwm_duty);
     system(comando_pwm_en);
-
-
+    
     usleep(duration*1000);
-
     snprintf(comando_pwm_en, sizeof(comando_pwm_en), "echo 0 > /sys/class/pwm/pwmchip%d/pwm%d/enable",pin, pin);
-
     system(comando_pwm_en);
 
-
     return 0;
-
-
 
 }
