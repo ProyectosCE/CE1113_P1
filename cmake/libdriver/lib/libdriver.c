@@ -45,12 +45,12 @@ int SetMoDir(struct Motor *m, char dir){
         value1 = 0;
         value2 = 1;
 
-    }if(dir == 'd'){
+    }else if(dir == 'd'){
         value1 = 1;
         value2 = 0;
     }else{
-        value1 = 1;
-        value2 = 1;
+        value1 = 0;
+        value2 = 0;
     }
 
     digitalWrite(pin1, value1);
