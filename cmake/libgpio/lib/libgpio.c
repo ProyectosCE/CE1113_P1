@@ -1,7 +1,7 @@
-#include <libgpio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "../include/libgpio.h"
 
 #define PATH "/sys/class/gpio"
 #define base 512

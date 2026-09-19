@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "../../libgpio/include/libgpio.h"
-#include <libdriver.h>
+#include "../include/libdriver.h"
 #define FREQ_MOTOR_HZ 1000
 
 
@@ -41,16 +41,16 @@ int SetMoDir(struct Motor *m, char dir){
     int value1;
     int value2;
 
-    if(dir = "i"){
+    if(dir == 'i'){
         value1 = 0;
         value2 = 1;
 
-    }if(dir = "d" ){
+    }if(dir == 'd'){
         value1 = 1;
         value2 = 0;
     }else{
-        value1 = 0;
-        value2 = 0;
+        value1 = 1;
+        value2 = 1;
     }
 
     digitalWrite(pin1, value1);

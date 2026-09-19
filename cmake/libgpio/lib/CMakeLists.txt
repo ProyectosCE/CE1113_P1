@@ -1,8 +1,10 @@
-include_directories (${CMAKE_SOURCE_DIR}/include)
+include_directories (${CMAKE_SOURCE_DIR}/libgpio/include)
 set (LIB_NAME gpio )
-set ( INC_FILE ${CMAKE_SOURCE_DIR}/include/libgpio.h)
+set ( INC_FILE ${CMAKE_SOURCE_DIR}/libgpio/include/libgpio.h)
 
 add_library(${LIB_NAME} SHARED libgpio.c ${INC_FILE})
+
+
 
 #target_link_libraries(${LIB_NAME} PRIVATE m)
 

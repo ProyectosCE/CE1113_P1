@@ -12,14 +12,21 @@ struct Motor{
 
 };
 
-int pinMode(int pin, const char *MODE);
+
+int SetMotor(struct Motor *m);
 
 
-int digitalWrite(int pin, int value);
+//apaga el motor pues
+int ApagarMotor(struct Motor *m);
 
-int digitalRead(int pin);
-//pin solo 0 o 1
 
-int blink(int pin, int freq, int duration);
+//direccion de motor recibe "i" para izquierda y "d" para derecha
+int SetMoDir(struct Motor *m, char dir);
+
+//pwm del motor
+int SetMoPwm(struct Motor *motor, int duty_percent);
+
+
+
 
 #endif

@@ -1,11 +1,13 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <libdriver.h>
 
 
 
 int main(){
 
-    struct Motor motorA = {13 ,12 ,0};
+    struct Motor motorA = {12 ,13 ,0};
 
     SetMotor(&motorA);
 
