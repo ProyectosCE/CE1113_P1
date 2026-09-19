@@ -1,19 +1,10 @@
-#include <libgpio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <cmake/libgpio/include/libgpio.h>
+#include "../../libgpio/include/libgpio.h"
+#include <libdriver.h>
 #define FREQ_MOTOR_HZ 1000
 
-
-struct Motor{
-
-    int Pin1;
-    int Pin2;
-    int pwm;
-
-
-};
 
 
 int SetMotor(struct Motor *m){
@@ -26,7 +17,6 @@ int SetMotor(struct Motor *m){
     return 0;
 
 }
-
 
 
 //apaga el motor pues
@@ -75,7 +65,6 @@ int SetMoDir(struct Motor *m, char dir){
 //pwm del motor
 int SetMoPwm(struct Motor *motor, int duty_percent) {
     if (motor == NULL) return -1;
-
     return setPWM(motor->pwm, FREQ_MOTOR_HZ, duty_percent);
 }
 

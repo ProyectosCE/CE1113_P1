@@ -60,7 +60,7 @@ int setPWM(int pin, int freq, int duty_percent) {
     if (duty_percent < 0) duty_percent = 0;
     if (duty_percent > 100) duty_percent = 100;
 
-    int periodo = 1000000000 / freq;
+    int periodo = 1000000 / freq;
     int duty = (periodo * duty_percent) / 100;
 
     char comando_pwm_set[100];
@@ -68,11 +68,11 @@ int setPWM(int pin, int freq, int duty_percent) {
     char comando_pwm_duty[100];
     char comando_pwm_en[100];
 
-    snprintf(comando_pwm_set, sizeof(comando_pwm_set), "echo %d > /sys/class/pwm/pwmchip%d/export", pin, pin);
-    snprintf(comando_pwm_period, sizeof(comando_pwm_period), "echo %d > /sys/class/pwm/pwmchip%d/pwm%d/period", periodo, pin, pin);
-    snprintf(comando_pwm_duty, sizeof(comando_pwm_duty), "echo %d > /sys/class/pwm/pwmchip%d/pwm%d/duty_cycle", duty, pin, pin);
-    snprintf(comando_pwm_en, sizeof(comando_pwm_en), "echo %d > /sys/class/pwm/pwmchip%d/pwm%d/enable", (duty_percent > 0) ? 1 : 0, pin, pin);
-
+    snprintf(comando_pwm_set, sizeof(comando_pwm_set), "echo %d > /sys/class/pwm/pwmchip%d/export", pin, 0);
+    snprintf(comando_pwm_period, sizeof(comando_pwm_period), "echo %d > /sys/class/pwm/pwmchip%d/pwm%d/period", periodo, 0, pin);
+    snprintf(comando_pwm_duty, sizeof(comando_pwm_duty), "echo %d > /sys/class/pwm/pwmchip%d/pwm%d/duty_cycle", duty, 0, pin);
+    snprintf(comando_pwm_en, sizeof(comando_pwm_en), "echo %d > /sys/class/pwm/pwmchip%d/pwm%d/enable", (duty_percent > 0) ? 1 : 0, 0, pin);
+                                    
     system(comando_pwm_set);
     system(comando_pwm_period);
     system(comando_pwm_duty);

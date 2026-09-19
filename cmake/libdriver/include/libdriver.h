@@ -1,8 +1,16 @@
-#ifndef LIBGPIO_H
-#define LIBGPIO_H
+#ifndef LIBDRIVER_H
+#define LIBDRIVER_H
 
 
 //modo = in o out
+
+
+struct Motor{
+    int Pin1;
+    int Pin2;
+    int pwm;
+
+};
 
 int pinMode(int pin, const char *MODE);
 

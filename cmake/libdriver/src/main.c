@@ -1,24 +1,26 @@
-#include "libgpio.h"
 #include <stdio.h>
+#include <libdriver.h>
+
+
 
 int main(){
 
-    //gio de salida, 12 porque es el que tiene pwm0
-    pinMode(12, "out");
-    pinMode(13, "out");
+    struct Motor motorA = {13 ,12 ,0};
 
-    //gpio de entrada
+    SetMotor(&motorA);
 
-    pinMode(17, "in");
+    SetMoDir(&motorA, 'i');
 
-    //escribir al 13 un 1
-    digitalWrite(13, 1);
+    sleep(5);
 
-    //establecer blink al pwm0 = 12, frecuencia 1khz y duracion 5 segundos
-    int valor_leido = digitalRead(17);
-    
-    printf("valor leido en el pin 17: %d", valor_leido);
+    SetMoDir(&motorA, 'd');
+
+    sleep(5);
+
+    ApagarMotor(&motorA);
 
     return 0;
+
+
 
 }
