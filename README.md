@@ -32,3 +32,6 @@ antes del make:
 
 cmake .. -DCMAKE_TOOLCHAIN_FILE=../arm_toolchain.cmake    -DCMAKE_INSTALL_PREFIX:PATH=$HOME/build/usr
 
+para configuracion de audio:
+
+mpg123 -o alsa -a plughw:2,0 tu_archivo.mp3 
