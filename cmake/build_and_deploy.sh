@@ -30,6 +30,7 @@ sudo mount "$DEVICE" "$MOUNT_POINT"
 trap 'echo "=== Desmontando unidad ==="; sync; sudo umount "$MOUNT_POINT"' EXIT
 
 echo "=== Copiando binarios y librerías ==="
+sudo cp -r ../../musica "$MOUNT_POINT/home/"
 sudo cp src/main "$MOUNT_POINT/bin/"
 sudo cp libdriver/lib/libdriver.so "$MOUNT_POINT/lib/"
 sudo cp libgpio/lib/libgpio.so "$MOUNT_POINT/lib/"

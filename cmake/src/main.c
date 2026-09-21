@@ -8,25 +8,12 @@
 
 int main(){
 
-    struct Motor motorA = {12 ,13 ,0};
-
-    SetMotor(&motorA);
-
-    SetMoDir(&motorA, 'd');
-
+    playSound("/home/musica/tiki.mp3");
     sleep(5);
 
-    ApagarMotor(&motorA);
-
+    pauseSound();
     sleep(5);
-
-    SetMoDir(&motorA, 'i');
-
-    sleep(5);
-
 
     return 0;
-
-
 
 }

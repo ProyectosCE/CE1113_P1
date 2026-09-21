@@ -6,6 +6,8 @@
 #define PATH "/sys/class/gpio"
 #define base 512
 
+#define mpg123 "mpg123 -o alsa -a plughw:2,0"
+
 //modo = in o out
 
 int pinMode(int pin, const char *MODE){ 
@@ -80,3 +82,28 @@ int setPWM(int pin, int freq, int duty_percent) {
 
     return 0;
 }
+
+
+
+
+
+
+
+//control de la musica
+int playPlaylist(const char *file_path){
+    char command[256];
+    snprintf(command, sizeof(command), "mpg123 -o alsa -a plughw:2,0 --fifo /tmp/mpg123-fifo -@ %s", file_path);
+    return system(command);
+}
+
+//control de la musica
+int playSound(const char *file_path){
+    char command[256];
+    snprintf(command, sizeof(command), "mpg123 -o alsa -a plughw:2,0 %s", file_path);
+    return system(command);
+}
+
+int pauseSound(){
+    return system("echo 'PAUSE' > /tmp/mpg123-fifo");
+}
+
