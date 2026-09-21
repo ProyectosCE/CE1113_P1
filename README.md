@@ -34,4 +34,25 @@ cmake .. -DCMAKE_TOOLCHAIN_FILE=../arm_toolchain.cmake    -DCMAKE_INSTALL_PREFIX
 
 para configuracion de audio:
 
+
 mpg123 -o alsa -a plughw:2,0 tu_archivo.mp3 
+
+para segundo plano:
+
+
+esto es lo que hace la funcion de cargar 
+
+mkfifo /tmp/mpg123.cmd
+
+mpg123 -R \
+    -o alsa \
+    -a plughw:2,0 \
+    < /tmp/mpg123.cmd \
+    > /tmp/mpg123.log 2>&1 &
+
+echo $! > /tmp/mpg123.pid
+
+exec 3>/tmp/mpg123.cmd
+
+echo "LOAD cancion.mp3" >&3
+
