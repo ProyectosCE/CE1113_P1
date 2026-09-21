@@ -24,3 +24,14 @@
 ### Objetivo
 
 Mediante el desarrollo de este proyecto, cada grupo de trabajo aplicará los conceptos y herramientas de software y hardware vistos en el curso en el diseño de un sistema embebido a la medida que controla un robot aspiradora autónomo. El sistema deberá ser capaz de navegar de forma autónoma evitando obstáculos, reproducir audio (archivos MP3), y además poder ser operado de forma remota a través de un servidor web o aplicación móvil mediante conectividad WiFi/Bluetooth.
+
+
+##intrucciones
+
+antes del make:
+
+cmake .. -DCMAKE_TOOLCHAIN_FILE=../arm_toolchain.cmake    -DCMAKE_INSTALL_PREFIX:PATH=$HOME/build/usr
+
+para configuracion de audio:
+
+mpg123 -o alsa -a plughw:2,0 tu_archivo.mp3 
