@@ -2,18 +2,21 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <libdriver.h>
-
+#include <libgpio.h>
 
 
 
 int main(){
+ 
+   IniciarSonido("plughw:2,0");
 
-    playSound("/home/musica/tiki.mp3");
-    sleep(5);
+   sleep(1);
 
-    pauseSound();
-    sleep(5);
+   CargarSonido("/home/musica/lean.mp3");
+    
+   sleep(5);
 
-    return 0;
+   Pausar();
+
 
 }

@@ -4,20 +4,6 @@
 
 //modo = in o out
 
-typedef struct {
-    char *path;
-    char *title;
-    char *artist;
-} Song;
-
-
-struct Playlist {
-    Song *songs;
-    size_t count;
-    size_t capacity;
-    size_t current;
-    int shuffled;
-};
 
 
 
@@ -31,7 +17,14 @@ int digitalRead(int pin);
 
 int blink(int pin, int freq, int duration);
 
-int playSound(const char *file_path);
+int IniciarSonido(const char *audio_device);
 
+static int EnviarComando(const char *comando);
+
+int CargarSonido(const char *archivo);
+
+
+int Pausar(void);
+int Stop(void);
 
 #endif
