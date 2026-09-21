@@ -4,7 +4,7 @@ add_executable(main main.c)
 
 
 
-target_link_libraries(main driver)
+target_link_libraries(main driver gpio)
 
 
 install (TARGETS main DESTINATION bin)
