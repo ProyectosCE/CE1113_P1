@@ -34,6 +34,7 @@ sudo cp -r ../../musica "$MOUNT_POINT/home/"
 sudo cp src/main "$MOUNT_POINT/bin/"
 sudo cp libdriver/lib/libdriver.so "$MOUNT_POINT/lib/"
 sudo cp libgpio/lib/libgpio.so "$MOUNT_POINT/lib/"
+sudo cp libaudio/lib/libaudio.so "$MOUNT_POINT/lib/"
 
 echo "=== Despliegue completado con éxito ==="
 # El bloque 'trap' se encargará de ejecutar el sync y umount automáticamente al salir
