@@ -1,0 +1,15 @@
+#ifndef AURABOT_HW_TYPES_H
+#define AURABOT_HW_TYPES_H
+
+
+typedef enum {
+    AURABOT_HW_OK = 0,
+    AURABOT_HW_ERROR = -1,
+    AURABOT_HW_INVALID_ARGUMENT = -2,
+    AURABOT_HW_NOT_INITIALIZED = -3,
+    AURABOT_HW_NOT_AVAILABLE = -4,
+    AURABOT_HW_NOT_IMPLEMENTED = -5
+} aurabot_hw_status_t;
+
+
+#endif
