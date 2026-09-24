@@ -5,7 +5,16 @@
 #include "../include/aurabot_hw.h"
 #define FREQ_MOTOR_HZ 1000
 
+aurabot_hw_status_t aurabot_hw_init(void)
+{
+    return AURABOT_HW_OK;
+}
 
+
+aurabot_hw_status_t aurabot_hw_shutdown(void)
+{
+    return AURABOT_HW_OK;
+}
 
 int SetMotor(struct Motor *m){
 
