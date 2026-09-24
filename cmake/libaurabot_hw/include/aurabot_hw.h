@@ -1,6 +1,8 @@
 #ifndef AURABOT_HW_H
 #define AURABOT_HW_H
 
+#include <stdint.h>
+
 
 typedef enum {
     AURABOT_HW_OK = 0,
@@ -32,28 +34,35 @@ typedef enum {
 } aurabot_led_id_t;
 
 
+typedef enum {
+    AURABOT_ENCODER_LEFT = 0,
+    AURABOT_ENCODER_RIGHT
+} aurabot_encoder_id_t;
+
+
 aurabot_hw_status_t aurabot_hw_init(void);
 
 aurabot_hw_status_t aurabot_hw_shutdown(void);
 
 
-/*
- * Temporary motor interface.
- * It will be replaced by the public motor API 
- */
-struct Motor {
-    int Pin1;
-    int Pin2;
-    int pwm;
-};
+aurabot_hw_status_t aurabot_motor_set_speed(
+    aurabot_motor_id_t motor,
+    int speed_percent
+);
 
-int SetMotor(struct Motor *m);
+aurabot_hw_status_t aurabot_motor_stop(
+    aurabot_motor_id_t motor
+);
 
-int ApagarMotor(struct Motor *m);
 
-int SetMoDir(struct Motor *m, char dir);
+aurabot_hw_status_t aurabot_encoder_get_count(
+    aurabot_encoder_id_t encoder,
+    int64_t *count
+);
 
-int SetMoPwm(struct Motor *motor, int duty_percent);
+aurabot_hw_status_t aurabot_encoder_reset(
+    aurabot_encoder_id_t encoder
+);
 
 
 #endif
