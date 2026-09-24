@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <libdriver.h>
+#include <aurabot_hw.h>
 #include <libgpio.h>
 #include <libaudio.h>
 

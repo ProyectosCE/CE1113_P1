@@ -12,7 +12,7 @@ set(CMAKE_INSTALL_RPATH "/lib;/usr/lib")
 
 add_subdirectory(libgpio)
 
-add_subdirectory(libdriver)
+add_subdirectory(libaurabot_hw)
 
 add_subdirectory(libaudio)
 

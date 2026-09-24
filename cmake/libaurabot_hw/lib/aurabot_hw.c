@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "../../libgpio/include/libgpio.h"
-#include "../include/libdriver.h"
+#include <libgpio.h>
+#include "../include/aurabot_hw.h"
 #define FREQ_MOTOR_HZ 1000
 
 
