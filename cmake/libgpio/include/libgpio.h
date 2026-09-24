@@ -17,14 +17,6 @@ int digitalRead(int pin);
 
 int blink(int pin, int freq, int duration);
 
-int IniciarSonido(const char *audio_device);
-
-static int EnviarComando(const char *comando);
-
-int CargarSonido(const char *archivo);
-
-
-int Pausar(void);
-int Stop(void);
 
 #endif
+

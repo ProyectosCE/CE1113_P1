@@ -14,6 +14,8 @@ add_subdirectory(libgpio)
 
 add_subdirectory(libdriver)
 
+add_subdirectory(libaudio)
+
 add_subdirectory(src)
 
 
