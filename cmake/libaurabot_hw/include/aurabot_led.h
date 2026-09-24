@@ -12,10 +12,21 @@ typedef enum {
 } aurabot_led_id_t;
 
 
-/*
- * LED control operations will be added
- * Physical GPIO assignments will remain private to the implementation
- */
+typedef enum {
+    AURABOT_LED_OFF = 0,
+    AURABOT_LED_ON
+} aurabot_led_state_t;
+
+
+aurabot_hw_status_t aurabot_led_set_state(
+    aurabot_led_id_t led,
+    aurabot_led_state_t state
+);
+
+aurabot_hw_status_t aurabot_led_get_state(
+    aurabot_led_id_t led,
+    aurabot_led_state_t *state
+);
 
 
 #endif
