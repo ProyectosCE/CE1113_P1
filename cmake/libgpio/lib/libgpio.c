@@ -1,110 +1,139 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+
 #include "../include/libgpio.h"
-#include <string.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <signal.h>
-#include <errno.h>
 
-#define FIFO "/tmp/mpg123.cmd"
-#define PID_FILE "/tmp/mpg123.pid"
-#define PATH "/sys/class/gpio"
-#define base 512
+#define GPIO_PATH "/sys/class/gpio"
+#define GPIO_BASE 512
 
- 
-static pid_t g_pid = -1;
-static int   g_fd  = -1;
-static char  g_fifo_path[256];
+#define PWM_CHIP 0
+#define NSEC_PER_SEC 1000000000LL
 
 
+int pinMode(int pin, const char *mode)
+{
+    if (pin < 0 || mode == NULL) {
+        return -1;
+    }
 
+    char export_command[100];
+    char mode_command[100];
 
+    snprintf(export_command, sizeof(export_command), "echo %d > %s/export", pin + GPIO_BASE, GPIO_PATH);
 
-//modo = in o out
+    snprintf(mode_command, sizeof(mode_command), "echo %s > %s/gpio%d/direction", mode, GPIO_PATH, pin + GPIO_BASE);
 
-int pinMode(int pin, const char *MODE){ 
-    char comando_export[50];
-    char comando_set_mode[50];
-    
-    snprintf(comando_export, sizeof(comando_export), "echo %d > %s/export", pin + base, PATH);
-    snprintf(comando_set_mode, sizeof(comando_set_mode), "echo %s > %s/gpio%d/direction",MODE ,PATH, pin+base);
-    system(comando_export); //exporta un pin
-    system(comando_set_mode); //setea el modo
+    /*
+     * Export may fail when the GPIO was already exported.
+     * Direction configuration is therefore the relevant
+     * operation checked here.
+     */
+    system(export_command);
+
+    if (system(mode_command) != 0) {
+        return -1;
+    }
+
     return 0;
 }
 
 
-
-int digitalWrite(int pin, int value){
-    char comando_set_value[50];
-
-    if(value != 0 && value != 1){
+int digitalWrite(int pin, int value)
+{
+    if (pin < 0) {
         return -1;
     }
-    snprintf(comando_set_value, sizeof(comando_set_value), "echo %d > %s/gpio%d/value", value, PATH, pin+base);
-    int resultado = system(comando_set_value);
-    return resultado;
+
+    if (value != 0 && value != 1) {
+        return -1;
+    }
+
+    char command[100];
+
+    snprintf(command, sizeof(command), "echo %d > %s/gpio%d/value", value, GPIO_PATH, pin + GPIO_BASE);
+
+    if (system(command) != 0) {
+        return -1;
+    }
+
+    return 0;
 }
 
 
-int digitalRead(int pin){
-    char path[50];
-    int value;
-
-    snprintf(path, sizeof(path), "%s/gpio%d/value", PATH, pin+base);
-
-    FILE *file =fopen(path, "r");
-
-    if(file == NULL){
+int digitalRead(int pin)
+{
+    if (pin < 0) {
         return -1;
     }
 
-    fscanf(file, "%d", &value);
+    char path[100];
+    int value;
+
+    snprintf(path, sizeof(path), "%s/gpio%d/value", GPIO_PATH, pin + GPIO_BASE);
+
+    FILE *file = fopen(path, "r");
+
+    if (file == NULL) {
+        return -1;
+    }
+
+    if (fscanf(file, "%d", &value) != 1) {
+        fclose(file);
+        return -1;
+    }
+
     fclose(file);
 
     return value;
-
-    
 }
 
-//pin solo 0 o 1
 
-int setPWM(int pin, int freq, int duty_percent) {
-    if (freq <= 0) return -1;
-    if (duty_percent < 0) duty_percent = 0;
-    if (duty_percent > 100) duty_percent = 100;
+int setPWM(int pin, int freq, int duty_percent)
+{
+    if (pin < 0 || freq <= 0) {
+        return -1;
+    }
 
-    int periodo = 1000000 / freq;
-    int duty = (periodo * duty_percent) / 100;
+    if (duty_percent < 0) {
+        duty_percent = 0;
+    }
 
-    char comando_pwm_set[100];
-    char comando_pwm_period[100];
-    char comando_pwm_duty[100];
-    char comando_pwm_en[100];
+    if (duty_percent > 100) {
+        duty_percent = 100;
+    }
 
-    snprintf(comando_pwm_set, sizeof(comando_pwm_set), "echo %d > /sys/class/pwm/pwmchip%d/export", pin, 0);
-    snprintf(comando_pwm_period, sizeof(comando_pwm_period), "echo %d > /sys/class/pwm/pwmchip%d/pwm%d/period", periodo, 0, pin);
-    snprintf(comando_pwm_duty, sizeof(comando_pwm_duty), "echo %d > /sys/class/pwm/pwmchip%d/pwm%d/duty_cycle", duty, 0, pin);
-    snprintf(comando_pwm_en, sizeof(comando_pwm_en), "echo %d > /sys/class/pwm/pwmchip%d/pwm%d/enable", (duty_percent > 0) ? 1 : 0, 0, pin);
-                                    
-    system(comando_pwm_set);
-    system(comando_pwm_period);
-    system(comando_pwm_duty);
-    system(comando_pwm_en);
+    long long period_ns = NSEC_PER_SEC / freq;
+    long long duty_ns = (period_ns * duty_percent) / 100;
+
+    char export_command[100];
+    char period_command[128];
+    char duty_command[128];
+    char enable_command[128];
+
+    snprintf(export_command, sizeof(export_command), "echo %d > /sys/class/pwm/pwmchip%d/export", pin, PWM_CHIP);
+
+    snprintf(period_command, sizeof(period_command), "echo %lld > /sys/class/pwm/pwmchip%d/pwm%d/period", period_ns, PWM_CHIP, pin);
+
+    snprintf(duty_command, sizeof(duty_command), "echo %lld > /sys/class/pwm/pwmchip%d/pwm%d/duty_cycle", duty_ns, PWM_CHIP, pin);
+
+    snprintf(enable_command, sizeof(enable_command), "echo %d > /sys/class/pwm/pwmchip%d/pwm%d/enable", duty_percent > 0 ? 1 : 0, PWM_CHIP, pin);
+
+    /*
+     * Export may fail when the PWM channel was already exported.
+     */
+    system(export_command);
+
+    if (system(period_command) != 0) {
+        return -1;
+    }
+
+    if (system(duty_command) != 0) {
+        return -1;
+    }
+
+    if (system(enable_command) != 0) {
+        return -1;
+    }
 
     return 0;
 }
-
-
-
-
-
-//falta meter mas comandos investigar los comandos remotos para mpg123
-
-//ademas de poder cargar una playlist en vez de una cancion
-
-
-

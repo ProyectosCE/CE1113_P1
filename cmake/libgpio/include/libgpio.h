@@ -1,22 +1,12 @@
 #ifndef LIBGPIO_H
 #define LIBGPIO_H
 
-
-//modo = in o out
-
-
-
-
-int pinMode(int pin, const char *MODE);
-
+int pinMode(int pin, const char *mode);
 
 int digitalWrite(int pin, int value);
 
 int digitalRead(int pin);
-//pin solo 0 o 1
 
-int blink(int pin, int freq, int duration);
-
+int setPWM(int pin, int freq, int duty_percent);
 
 #endif
-
