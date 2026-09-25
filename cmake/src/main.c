@@ -1,22 +1,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <libdriver.h>
+#include <aurabot_hw.h>
 #include <libgpio.h>
 
 
-
 int main(){
- 
-   IniciarSonido("plughw:2,0");
+
+    aurabot_hw_init();
+
+    pinMode(0, "out");
+    digitalWrite(0, 1);
 
    sleep(1);
 
-   CargarSonido("/home/musica/lean.mp3");
+   aurabot_audio_play_file("/home/musica/lean.mp3");
     
    sleep(5);
 
-   Pausar();
+   aurabot_audio_pause();
+
+   aurabot_hw_shutdown();
 
 
 }
