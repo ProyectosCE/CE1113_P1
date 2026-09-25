@@ -1,92 +1,109 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "../include/libgpio.h"
 
 #define GPIO_PATH "/sys/class/gpio"
 #define GPIO_BASE 512
+#define GPIO_COUNT 58
 
 #define PWM_CHIP 0
 #define NSEC_PER_SEC 1000000000LL
 
+/* Write text to a sysfs file. Return 0 on success and -1 on error. */
+static int writeTextFile(const char *path, const char *text)
+{
+    FILE *file = fopen(path, "w");
+    if (file == NULL) {
+        return -1;
+    }
+
+    if (fputs(text, file) == EOF) {
+        int saved_errno = errno;
+        (void)fclose(file);
+        errno = saved_errno;
+        return -1;
+    }
+
+    if (fclose(file) == EOF) {
+        return -1;
+    }
+
+    return 0;
+}
 
 int pinMode(int pin, const char *mode)
 {
-    if (pin < 0 || mode == NULL) {
+    if (pin < 0 || pin >= GPIO_COUNT || mode == NULL || (strcmp(mode, "in") != 0 && strcmp(mode, "out") != 0)) {
+        errno = EINVAL;
         return -1;
     }
 
-    char export_command[100];
-    char mode_command[100];
+    char number[16];
+    char path[128];
+    int global_pin = GPIO_BASE + pin;
 
-    snprintf(export_command, sizeof(export_command), "echo %d > %s/export", pin + GPIO_BASE, GPIO_PATH);
+    snprintf(number, sizeof(number), "%d", global_pin);
 
-    snprintf(mode_command, sizeof(mode_command), "echo %s > %s/gpio%d/direction", mode, GPIO_PATH, pin + GPIO_BASE);
-
-    /*
-     * Export may fail when the GPIO was already exported.
-     * Direction configuration is therefore the relevant
-     * operation checked here.
-     */
-    system(export_command);
-
-    if (system(mode_command) != 0) {
+    if (writeTextFile(GPIO_PATH "/export", number) != 0 && errno != EBUSY) {
         return -1;
     }
 
-    return 0;
+    snprintf(path, sizeof(path), GPIO_PATH "/gpio%d/direction", global_pin);
+    return writeTextFile(path, mode);
 }
-
 
 int digitalWrite(int pin, int value)
 {
-    if (pin < 0) {
+    if (pin < 0 || pin >= GPIO_COUNT || (value != 0 && value != 1)) {
+        errno = EINVAL;
         return -1;
     }
 
-    if (value != 0 && value != 1) {
-        return -1;
-    }
+    char path[128];
+    int global_pin = GPIO_BASE + pin;
 
-    char command[100];
-
-    snprintf(command, sizeof(command), "echo %d > %s/gpio%d/value", value, GPIO_PATH, pin + GPIO_BASE);
-
-    if (system(command) != 0) {
-        return -1;
-    }
-
-    return 0;
+    snprintf(path, sizeof(path), GPIO_PATH "/gpio%d/value", global_pin);
+    return writeTextFile(path, value == 1 ? "1" : "0");
 }
-
 
 int digitalRead(int pin)
 {
-    if (pin < 0) {
+    if (pin < 0 || pin >= GPIO_COUNT) {
+        errno = EINVAL;
         return -1;
     }
 
-    char path[100];
+    char path[128];
     int value;
+    int global_pin = GPIO_BASE + pin;
 
-    snprintf(path, sizeof(path), "%s/gpio%d/value", GPIO_PATH, pin + GPIO_BASE);
+    snprintf(path, sizeof(path), GPIO_PATH "/gpio%d/value", global_pin);
 
     FILE *file = fopen(path, "r");
-
     if (file == NULL) {
         return -1;
     }
 
     if (fscanf(file, "%d", &value) != 1) {
-        fclose(file);
+        (void)fclose(file);
+        errno = EIO;
         return -1;
     }
 
-    fclose(file);
+    if (fclose(file) == EOF) {
+        return -1;
+    }
+
+    if (value != 0 && value != 1) {
+        errno = EIO;
+        return -1;
+    }
 
     return value;
 }
-
 
 int setPWM(int pin, int freq, int duty_percent)
 {
@@ -118,9 +135,6 @@ int setPWM(int pin, int freq, int duty_percent)
 
     snprintf(enable_command, sizeof(enable_command), "echo %d > /sys/class/pwm/pwmchip%d/pwm%d/enable", duty_percent > 0 ? 1 : 0, PWM_CHIP, pin);
 
-    /*
-     * Export may fail when the PWM channel was already exported.
-     */
     system(export_command);
 
     if (system(period_command) != 0) {
