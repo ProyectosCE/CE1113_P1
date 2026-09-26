@@ -1,4 +1,4 @@
-# Este archivo se ejecuta despues de CE1113-P1.bb
+# Este archivo amplía ce1113-p1.bb sin duplicar la imagen principal.
 # Añadimos la configuracion de red y Wi-Fi a la imagen
 
 IMAGE_INSTALL:append = " \
