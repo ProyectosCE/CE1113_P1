@@ -10,16 +10,24 @@ add_subdirectory("${AURABOT_CMAKE_ROOT}/libpwm" "${CMAKE_CURRENT_BINARY_DIR}/lib
 
 add_subdirectory("${AURABOT_CMAKE_ROOT}/libgpio" "${CMAKE_CURRENT_BINARY_DIR}/libgpio")
 
-# Optional sysfs directory for testing without physical hardware.
-if(DEFINED GPIO_SYSFS_TEST_ROOT AND
-   NOT GPIO_SYSFS_TEST_ROOT STREQUAL "")
+# Optional GPIO sysfs simulation.
+if(DEFINED GPIO_SYSFS_TEST_ROOT AND NOT GPIO_SYSFS_TEST_ROOT STREQUAL "")
+    target_compile_definitions(gpio PRIVATE "GPIO_SYSFS_PATH=\"${GPIO_SYSFS_TEST_ROOT}\"")
+endif()
 
-    target_compile_definitions(
-        gpio PRIVATE
-        "GPIO_SYSFS_PATH=\"${GPIO_SYSFS_TEST_ROOT}\""
-    )
+# Optional PWM sysfs simulation.
+if(DEFINED PWM_SYSFS_TEST_ROOT AND NOT PWM_SYSFS_TEST_ROOT STREQUAL "")
+    target_compile_definitions(pwm PRIVATE "PWM_SYSFS_ROOT=\"${PWM_SYSFS_TEST_ROOT}\"")
 endif()
 
 add_executable(test_ir_led test_ir_led.c)
 
 target_link_libraries(test_ir_led PRIVATE gpio)
+
+add_executable(test_pwm test_pwm.c)
+
+target_link_libraries(test_pwm PRIVATE gpio pwm)
+
+if(DEFINED PWM_SYSFS_TEST_ROOT AND NOT PWM_SYSFS_TEST_ROOT STREQUAL "")
+    target_compile_definitions(test_pwm PRIVATE "PWM_TEST_SYSFS_ROOT=\"${PWM_SYSFS_TEST_ROOT}\"")
+endif()
