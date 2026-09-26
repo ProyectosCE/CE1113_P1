@@ -7,4 +7,5 @@
 - [Integración continua](development/continuos-integration.md)
 - [API de hardware](architecture/hardware-api.md)
 - [Crear layers y recetas](development/create-recipe-script.md)
+- [Verificar y grabar imágenes con GUI](development/image-scripts.md)
 - [Estructura del repositorio](development/repository-structure.md)
