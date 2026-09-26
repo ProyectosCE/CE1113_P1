@@ -6,3 +6,5 @@
 - [Uso de build, check y flash](development/scripts.md)
 - [Integración continua](development/continuos-integration.md)
 - [API de hardware](architecture/hardware-api.md)
+- [Crear layers y recetas](development/create-recipe-script.md)
+- [Estructura del repositorio](development/repository-structure.md)
