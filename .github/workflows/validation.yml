@@ -97,8 +97,8 @@ jobs:
             fi
 
             # Caracteres permitidos:
-            # letras, números, punto, guion bajo, guion y slash.
-            if [[ ! "$file" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            # letras, números, punto, guion bajo, guion, slash y porcentaje.
+            if [[ ! "$file" =~ ^[A-Za-z0-9._/-%]+$ ]]; then
               echo "::error file=$file::El nombre contiene caracteres no permitidos."
               errors=1
             fi
