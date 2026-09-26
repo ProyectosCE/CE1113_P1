@@ -8,6 +8,8 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 set(CMAKE_INSTALL_RPATH "/lib;/usr/lib")
 
+add_subdirectory(common)
+add_subdirectory(libpwm)
 add_subdirectory(libgpio)
 add_subdirectory(libaudio)
 add_subdirectory(libaurabot_hw)
