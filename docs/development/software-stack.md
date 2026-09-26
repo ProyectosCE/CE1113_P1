@@ -103,13 +103,16 @@ Yocto permitirá construir una imagen personalizada que contenga únicamente los
 * Dependencias necesarias para hardware y audio.
 * Archivos de configuración.
 
-La capa propia del proyecto se mantendrá dentro de:
+La capa principal del proyecto se mantiene en:
 
 ```text
-yocto/meta-aurabot/
+meta-ce1113/
 ```
 
-El objetivo final es que la imagen completa pueda generarse mediante BitBake sin configuraciones manuales posteriores sobre la Raspberry Pi.
+El código C/CMake vive en la receta
+`layers/meta-aura-apps/recipes-apps/aurabot` y la imagen final conserva el nombre
+`ce1113-p1`. La imagen completa se genera con BitBake sin
+compilar ni copiar binarios manualmente después sobre la Raspberry Pi.
 
 ---
 

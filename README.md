@@ -26,13 +26,22 @@
 Mediante el desarrollo de este proyecto, cada grupo de trabajo aplicará los conceptos y herramientas de software y hardware vistos en el curso en el diseño de un sistema embebido a la medida que controla un robot aspiradora autónomo. El sistema deberá ser capaz de navegar de forma autónoma evitando obstáculos, reproducir audio (archivos MP3), y además poder ser operado de forma remota a través de un servidor web o aplicación móvil mediante conectividad WiFi/Bluetooth.
 
 
-##intrucciones
+## Desarrollo
 
-antes del make:
+La imagen principal es `ce1113-p1` y su definición permanece aislada en
+`meta-ce1113`. El código C/CMake se compila mediante la receta `aurabot` de
+`layers/meta-aura-apps`.
 
-cmake .. -DCMAKE_TOOLCHAIN_FILE=../arm_toolchain.cmake    -DCMAKE_INSTALL_PREFIX:PATH=$HOME/build/usr
+Consulte el [índice de documentación](docs/README.md), en particular:
 
-para configuracion de audio:
+- [estructura del repositorio](docs/development/repository-structure.md);
+- [imágenes disponibles](docs/yocto/images.md);
+- [scripts de compilación, comprobación y grabación](docs/development/scripts.md);
+- [guía para añadir funcionalidades](docs/yocto/extending.md).
+
+## Notas de audio
+
+Para configuración de audio:
 
 
 mpg123 -o alsa -a plughw:2,0 tu_archivo.mp3 
@@ -55,4 +64,3 @@ echo $! > /tmp/mpg123.pid
 exec 3>/tmp/mpg123.cmd
 
 echo "LOAD cancion.mp3" >&3
-
