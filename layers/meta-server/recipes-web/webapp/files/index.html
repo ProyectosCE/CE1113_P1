@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>LibOperaciones</title>
+
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+    <main class="container">
+
+        <header class="header">
+            <h1>LibOperaciones</h1>
+            <p>
+                Interfaz web para probar la biblioteca
+                <code>liboperaciones</code>
+            </p>
+        </header>
+
+        <section class="card">
+
+            <h2>Operaciones matemáticas</h2>
+
+            <div class="form-grid">
+
+                <div class="field">
+                    <label for="a">Valor A</label>
+                    <input
+                        type="number"
+                        id="a"
+                        value="5"
+                        step="any"
+                    >
+                </div>
+
+                <div class="field">
+                    <label for="b">Valor B</label>
+                    <input
+                        type="number"
+                        id="b"
+                        value="3"
+                        step="any"
+                    >
+                </div>
+
+            </div>
+
+            <div class="button-grid">
+
+                <button data-operation="suma">
+                    Suma
+                </button>
+
+                <button data-operation="resta">
+                    Resta
+                </button>
+
+                <button data-operation="mult">
+                    Multiplicación
+                </button>
+
+                <button data-operation="div">
+                    División
+                </button>
+
+                <button data-operation="sqrt">
+                    √ Raíz cuadrada
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <section class="card">
+
+            <h2>Biblioteca</h2>
+
+            <button id="message-button">
+                Probar liboperaciones
+            </button>
+
+        </section>
+
+
+        <section class="card result-card">
+
+            <h2>Resultado</h2>
+
+            <div id="status" class="status">
+                Esperando una operación...
+            </div>
+
+            <pre id="result">—</pre>
+
+        </section>
+
+    </main>
+
+    <script src="/app.js"></script>
+
+</body>
+</html>
