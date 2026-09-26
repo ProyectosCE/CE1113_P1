@@ -1,295 +1,56 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-POKY_DIR="$HOME/poky-scarthgap-5.0.19"
-PROJECT_DIR="$HOME/CE1113_P1"
-TARGET_DEV="/dev/mmcblk0"
+POKY_DIR=${POKY_DIR:-"$HOME/poky-scarthgap-5.0.19"}
+MACHINE=raspberrypi4; IMAGE=ce1113-p1; BUILD_DIR=""; TARGET_DEVICE=""; ASSUME_YES=0; FORCE=0
 
-if ! command -v whiptail &> /dev/null; then
-    echo "Error: whiptail no está instalado."
-    exit 1
+usage() {
+    cat <<'EOF'
+Uso: ./flash_sd.sh --device /dev/sdX [opciones]
+  -d, --device DEV     Dispositivo completo, nunca una partición
+  -i, --image NOMBRE   Por defecto: ce1113-p1
+  -p, --poky DIR       Árbol Poky (o variable POKY_DIR)
+  -b, --build-dir DIR  Por defecto: <poky>/build-raspberrypi4
+  -y, --yes            Omite confirmación interactiva
+      --force          Permite dispositivo no marcado como removible
+EOF
+}
+while (($#)); do
+    case "$1" in
+        -d|--device) TARGET_DEVICE=${2:?}; shift 2;; -i|--image) IMAGE=${2:?}; shift 2;;
+        -p|--poky) POKY_DIR=${2:?}; shift 2;; -b|--build-dir) BUILD_DIR=${2:?}; shift 2;;
+        -y|--yes) ASSUME_YES=1; shift;; --force) FORCE=1; shift;; -h|--help) usage; exit 0;;
+        *) echo "Opción desconocida: $1" >&2; exit 2;;
+    esac
+done
+[[ -n "$TARGET_DEVICE" ]] || { usage >&2; echo "Error: --device es obligatorio." >&2; exit 2; }
+[[ -b "$TARGET_DEVICE" ]] || { echo "$TARGET_DEVICE no es un dispositivo de bloque." >&2; exit 1; }
+[[ "$(lsblk -dn -o TYPE "$TARGET_DEVICE")" == disk ]] || { echo "Use el disco completo, no una partición: $TARGET_DEVICE" >&2; exit 1; }
+if ((FORCE == 0)) && [[ "$(lsblk -dn -o RM "$TARGET_DEVICE")" != 1 ]]; then
+    echo "$TARGET_DEVICE no está marcado como removible; use --force solo tras verificarlo con lsblk." >&2; exit 1
 fi
 
-# --- Verificación: ¿la SD está realmente conectada? ---
-if [ ! -b "$TARGET_DEV" ]; then
-    # Intentar forzar a udev a recrearlo antes de rendirse
-    sudo udevadm trigger --subsystem-match=block --action=add 2>/dev/null
-    sudo udevadm settle 2>/dev/null
+BUILD_DIR=${BUILD_DIR:-"$POKY_DIR/build-$MACHINE"}; DEPLOY_DIR="$BUILD_DIR/tmp/deploy/images/$MACHINE"
+LATEST_MANIFEST=$(find "$DEPLOY_DIR" -maxdepth 1 -type f -name "${IMAGE}-${MACHINE}*.manifest" -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-)
+[[ -n "$LATEST_MANIFEST" ]] || { echo "No existe una compilación de $IMAGE para $MACHINE." >&2; exit 1; }
+IMAGE_BASE=${LATEST_MANIFEST%.manifest}; IMAGE_FILE=""; IMAGE_TYPE=""
+for extension in wic.bz2 wic; do
+    if [[ -f "$IMAGE_BASE.$extension" ]]; then IMAGE_FILE="$IMAGE_BASE.$extension"; IMAGE_TYPE=$extension; break; fi
+done
+[[ -n "$IMAGE_FILE" ]] || { echo "Falta .wic.bz2 o .wic junto a $LATEST_MANIFEST." >&2; exit 1; }
+
+if find "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)" -type f \( -name '*.bb' -o -name '*.bbappend' \) -newer "$LATEST_MANIFEST" -print -quit | grep -q .; then
+    echo "Advertencia: hay metadata Yocto más nueva que la imagen." >&2
+fi
+echo "Se sobrescribirá TODO $TARGET_DEVICE con $(basename "$IMAGE_FILE")."
+lsblk -o NAME,SIZE,MODEL,TRAN,MOUNTPOINTS "$TARGET_DEVICE"
+if ((ASSUME_YES == 0)); then
+    read -r -p "Escriba exactamente BORRAR para continuar: " answer
+    [[ "$answer" == BORRAR ]] || { echo "Cancelado."; exit 0; }
 fi
 
-if [ ! -b "$TARGET_DEV" ]; then
-    whiptail --title "SD no detectada" \
-        --msgbox "Error: $TARGET_DEV no existe o no es un dispositivo de bloque.\n\nVerifica que la tarjeta SD esté conectada e inténtalo de nuevo.\n\nPuedes confirmar el nombre correcto del dispositivo con: lsblk" \
-        12 75
-    exit 1
-fi
-
-MACHINE_SEL=$(whiptail \
-    --title "Selección de Máquina" \
-    --menu "Selecciona la máquina:" \
-    15 65 2 \
-    "qemuarm64" "Emulador QEMU ARM64" \
-    "raspberrypi4" "Raspberry Pi 4" \
-    3>&1 1>&2 2>&3)
-
-[ $? -ne 0 ] && exit 1
-
-if [ "$MACHINE_SEL" == "qemuarm64" ]; then
-    whiptail --msgbox \
-        "Error: Las imágenes de QEMU no se graban en SD. Selecciona raspberrypi4." \
-        10 65
-    exit 1
-fi
-
-IMAGE_SEL=$(whiptail \
-    --title "Selección de Imagen" \
-    --menu "Selecciona la imagen a grabar:" \
-    16 65 3 \
-    "CE1113-P1" "Imagen final personalizada" \
-    "core-image-minimal" "Imagen base limpia de Poky" \
-    "rpi-test-image" "Imagen de prueba" \
-    3>&1 1>&2 2>&3)
-
-[ $? -ne 0 ] && exit 1
-
-clear
-echo "Buscando el sistema de archivos más reciente..."
-
-LATEST_MANIFEST=$(find "$POKY_DIR"/build*/tmp/deploy/images \
-    -type f \
-    -name "${IMAGE_SEL}*.manifest" \
-    -printf '%T@ %p\n' \
-    2>/dev/null |
-    grep "$MACHINE_SEL" |
-    sort -n |
-    tail -1 |
-    awk '{print $2}')
-
-if [ -z "$LATEST_MANIFEST" ]; then
-    LATEST_MANIFEST=$(find "$POKY_DIR"/build*/tmp/deploy/images \
-        -type f \
-        -name "${IMAGE_SEL}*.manifest" \
-        -printf '%T@ %p\n' \
-        2>/dev/null |
-        sort -n |
-        tail -1 |
-        awk '{print $2}')
-fi
-
-if [ -z "$LATEST_MANIFEST" ]; then
-    whiptail --msgbox \
-        "Error: No se encontró ningún archivo .manifest para ${IMAGE_SEL} (${MACHINE_SEL})." \
-        12 75
-    exit 1
-fi
-
-DEPLOY_DIR=$(dirname "$LATEST_MANIFEST")
-IMAGE_BASE=$(basename "$LATEST_MANIFEST" .manifest)
-
-# Preferimos .wic.bz2 / .wic: son imágenes de disco completas
-# (boot + rootfs), listas para grabar tal cual en la SD.
-# Un .ext4 suelto NO tiene partición de boot y la Raspberry Pi
-# no podrá arrancar con él.
-
-IMAGE_TYPE=""
-LATEST_TRV=""
-
-if [ -f "${DEPLOY_DIR}/${IMAGE_BASE}.wic.bz2" ]; then
-    LATEST_TRV="${DEPLOY_DIR}/${IMAGE_BASE}.wic.bz2"
-    IMAGE_TYPE="wic.bz2"
-
-elif [ -f "${DEPLOY_DIR}/${IMAGE_BASE}.wic" ]; then
-    LATEST_TRV="${DEPLOY_DIR}/${IMAGE_BASE}.wic"
-    IMAGE_TYPE="wic"
-
-elif [ -f "${DEPLOY_DIR}/${IMAGE_BASE}.ext4" ]; then
-    LATEST_TRV="${DEPLOY_DIR}/${IMAGE_BASE}.ext4"
-    IMAGE_TYPE="ext4"
-fi
-
-if [ -z "$LATEST_TRV" ]; then
-    whiptail --msgbox \
-        "Error: Se encontró el manifest (${IMAGE_BASE}) pero no su imagen (.wic.bz2/.wic/.ext4) en:\n${DEPLOY_DIR}" \
-        12 75
-    exit 1
-fi
-
-if [ "$IMAGE_TYPE" == "ext4" ]; then
-    whiptail --msgbox \
-        "Advertencia: solo se encontró un .ext4 (sin partición de boot). La Raspberry Pi NO arrancará con esto.\n\nAgrega 'wic.bz2' a IMAGE_FSTYPES en tu configuración y recompila para generar una imagen completa." \
-        14 75
-    exit 1
-fi
-
-IMAGE_NAME=$(basename "$LATEST_TRV")
-
-# --- Verificación 1: ¿el build es más reciente que los últimos cambios en tus recetas? ---
-# Si algún .bb fue modificado DESPUÉS de que se generó este manifest,
-# la imagen que vas a grabar no refleja ese cambio.
-
-STALE_WARNING=""
-
-if [ -d "$PROJECT_DIR" ]; then
-    NEWER_RECIPES=$(find "$PROJECT_DIR" \
-        -name "*.bb" \
-        -newer "$LATEST_MANIFEST" \
-        2>/dev/null)
-
-    if [ -n "$NEWER_RECIPES" ]; then
-        STALE_WARNING="⚠ ADVERTENCIA: estas recetas fueron modificadas DESPUÉS de esta compilación (recompila antes de grabar):\n"
-
-        STALE_WARNING+=$(echo "$NEWER_RECIPES" |
-            xargs -n1 basename |
-            sed 's/^/  - /' |
-            tr '\n' '|')
-
-        STALE_WARNING=$(echo "$STALE_WARNING" | tr '|' '\n')
-    fi
-fi
-
-# --- Verificación 2: ¿los paquetes custom del proyecto están en el manifest? ---
-
-CUSTOM_REPORT=""
-MISSING_COUNT=0
-
-if [ -d "$PROJECT_DIR" ]; then
-
-    CUSTOM_PKGS=$(find "$PROJECT_DIR" \
-        -name "*.bb" \
-        2>/dev/null |
-        grep -v "/recipes-core/images/" |
-        awk -F/ '{print $NF}' |
-        cut -d'_' -f1 |
-        cut -d'.' -f1 |
-        sort -u)
-
-    MISSING_COUNT=0
-
-    for pkg in $CUSTOM_PKGS; do
-
-        if awk '{print $1}' "$LATEST_MANIFEST" |
-            grep -q "^${pkg}"; then
-
-            CUSTOM_REPORT+="  [OK] $pkg\n"
-
-        else
-
-            CUSTOM_REPORT+="  [X]  $pkg  <-- NO está en la imagen\n"
-            MISSING_COUNT=$((MISSING_COUNT + 1))
-
-        fi
-
-    done
-fi
-
-# Si hay recetas más nuevas que el build, o paquetes custom faltantes,
-# avisamos y pedimos confirmación explícita antes de seguir.
-
-if [ -n "$STALE_WARNING" ] || [ "$MISSING_COUNT" -gt 0 ]; then
-
-    ALERT_MSG="$STALE_WARNING\n"
-
-    if [ "$MISSING_COUNT" -gt 0 ]; then
-        ALERT_MSG+="⚠ $MISSING_COUNT paquete(s) custom NO están en esta imagen:\n$CUSTOM_REPORT\n"
-    fi
-
-    ALERT_MSG+="\n¿Deseas grabar esta imagen de todas formas?"
-
-    whiptail \
-        --title "Verificación de vigencia" \
-        --yesno "$ALERT_MSG" \
-        22 78
-
-    if [ $? -ne 0 ]; then
-        echo "Operación cancelada: recompila la imagen y vuelve a intentar."
-        exit 0
-    fi
-
-else
-
-    whiptail \
-        --title "Verificación OK" \
-        --msgbox "✓ La imagen está al día con tus recetas.\n✓ Todos los paquetes custom están presentes:\n\n$CUSTOM_REPORT" \
-        20 78
-fi
-
-whiptail \
-    --title "¡ADVERTENCIA DE SEGURIDAD!" \
-    --yesno "Se encontró la imagen rootfs:\n\n${IMAGE_NAME}\n\nSe grabará en la tarjeta SD.\n\n${TARGET_DEV} - ESTO BORRARÁ TODOS LOS DATOS EN LA SD\n\n¿Estás completamente seguro de continuar?" \
-    16 70
-
-if [ $? -ne 0 ]; then
-    echo "Operación cancelada por el usuario."
-    exit 0
-fi
-
-clear
-
-echo "================================================="
-echo " INICIANDO GRABACIÓN EN $TARGET_DEV"
-echo "================================================="
-
-# --- Verificación (otra vez): la SD sigue conectada justo antes de escribir ---
-
-if [ ! -b "$TARGET_DEV" ]; then
-    # Intento de recuperación de udev justo antes de escribir
-    sudo udevadm trigger --subsystem-match=block --action=add 2>/dev/null
-    sudo udevadm settle 2>/dev/null
-fi
-
-if [ ! -b "$TARGET_DEV" ]; then
-    whiptail \
-        --title "SD no detectada" \
-        --msgbox "Error: $TARGET_DEV ya no está disponible. ¿Se desconectó la SD?" \
-        10 70
-    exit 1
-fi
-
-echo "Desmontando particiones previas si están activas..."
-
-sudo umount "${TARGET_DEV}"* 2>/dev/null
-
-echo "Limpiando tabla de particiones y firmas de filesystem anteriores..."
-
-if command -v wipefs &> /dev/null; then
-    sudo wipefs -a "$TARGET_DEV" 2>/dev/null
-fi
-
-# Borra los primeros 10 MB (MBR/GPT primario) por si wipefs
-# no está disponible o no alcanzó a limpiar todo.
-
-sudo dd \
-    if=/dev/zero \
-    of="$TARGET_DEV" \
-    bs=1M \
-    count=10 \
-    status=none \
-    2>/dev/null
-
-sudo sync
-
-echo "Escribiendo la imagen sobre la SD (esto puede tardar)..."
-
-if [ "$IMAGE_TYPE" == "wic.bz2" ]; then
-
-    bzcat "$LATEST_TRV" |
-        sudo dd \
-            of="$TARGET_DEV" \
-            bs=4M \
-            status=progress
-
-else
-
-    sudo dd \
-        if="$LATEST_TRV" \
-        of="$TARGET_DEV" \
-        bs=4M \
-        status=progress
-
-fi
-
-sudo sync
-
-echo "-------------------------------------------------"
-echo " ¡LISTO! La memoria SD fue preparada."
-echo " Puedes retirarla y ponerla en tu Raspberry Pi 4."
-echo "================================================="
+mapfile -t partitions < <(lsblk -ln -o PATH "$TARGET_DEVICE" | tail -n +2)
+for partition in "${partitions[@]}"; do sudo umount "$partition" 2>/dev/null || true; done
+if [[ "$IMAGE_TYPE" == wic.bz2 ]]; then bzcat "$IMAGE_FILE" | sudo dd of="$TARGET_DEVICE" bs=4M status=progress conv=fsync; else sudo dd if="$IMAGE_FILE" of="$TARGET_DEVICE" bs=4M status=progress conv=fsync; fi
+sync
+echo "Imagen grabada correctamente en $TARGET_DEVICE."
