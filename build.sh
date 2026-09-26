@@ -76,11 +76,51 @@ sed -i '/^# BEGIN CE1113 MANAGED$/,/^# END CE1113 MANAGED$/d' conf/local.conf
     echo '# END CE1113 MANAGED'
 } >> conf/local.conf
 
-bitbake-layers add-layer "$PROJECT_DIR/meta-ce1113"
+# ==========================================
+# Agregar capas al bblayers.conf
+# ==========================================
+add_layer_if_missing() {
+    local layer_path="$1"
+    local layer_name
+    layer_name=$(basename "$layer_path")
+
+    if grep -Fq "$layer_path" conf/bblayers.conf; then
+        echo "Capa ya configurada: $layer_name"
+        return 0
+    fi
+
+    echo "Agregando capa: $layer_name"
+
+    if ! bitbake-layers add-layer "$layer_path"; then
+        echo "Error: no se pudo agregar la capa $layer_path" >&2
+        exit 1
+    fi
+}
+
+# Capa base del proyecto
+add_layer_if_missing "$PROJECT_DIR/meta-ce1113"
+
+# Dependencias específicas de Raspberry Pi
 if [[ "$MACHINE" == raspberrypi4 ]]; then
-    [[ -f "$POKY_DIR/meta-raspberrypi/conf/layer.conf" ]] || { echo "Falta meta-raspberrypi en $POKY_DIR" >&2; exit 1; }
-    bitbake-layers add-layer "$POKY_DIR/meta-raspberrypi" >/dev/null 2>&1 || true
+    if [[ -f "$POKY_DIR/meta-raspberrypi/conf/layer.conf" ]]; then
+        add_layer_if_missing "$POKY_DIR/meta-raspberrypi"
+    else
+        echo "Error: falta meta-raspberrypi en $POKY_DIR" >&2
+        exit 1
+    fi
 fi
-for layer in "${SELECTED_LAYERS[@]}"; do bitbake-layers add-layer "$PROJECT_DIR/layers/$layer"; done
-printf 'Compilando %s para %s; capas: %s\n' "$IMAGE" "$MACHINE" "${SELECTED_LAYERS[*]:-(ninguna)}"
+
+# Capas seleccionadas por el usuario
+for layer in "${SELECTED_LAYERS[@]}"; do
+    add_layer_if_missing "$PROJECT_DIR/layers/$layer"
+done
+
+# ==========================================
+# Ejecutar compilación
+# ==========================================
+echo "-----------------------------------------------------------"
+printf 'Compilando %s para %s\n' "$IMAGE" "$MACHINE"
+printf 'Capas seleccionadas: %s\n' "${SELECTED_LAYERS[*]:-(ninguna)}"
+echo "-----------------------------------------------------------"
+
 bitbake "$IMAGE"
