@@ -96,13 +96,30 @@ fi
 # ==========================================
 # 7. Agregar Capas al bblayers.conf
 # ==========================================
+add_layer_if_missing() {
+    local layer_path="$1"
+    local layer_name
+    layer_name=$(basename "$layer_path")
+
+    if grep -Fq "$layer_path" conf/bblayers.conf; then
+        echo "Capa ya configurada: $layer_name"
+        return 0
+    fi
+
+    echo "Agregando capa: $layer_name"
+    if ! bitbake-layers add-layer "$layer_path"; then
+        echo "Error: no se pudo agregar la capa $layer_path" >&2
+        exit 1
+    fi
+}
+
 echo "Agregando capa base meta-ce1113..."
-bitbake-layers add-layer "$META_BASE" > /dev/null 2>&1
+add_layer_if_missing "$META_BASE"
 
 if [ "$MACHINE_SEL" == "raspberrypi4" ]; then
     if [ -d "$POKY_DIR/meta-raspberrypi" ]; then
         echo "Agregando dependencias de Raspberry Pi..."
-        bitbake-layers add-layer "$POKY_DIR/meta-raspberrypi" > /dev/null 2>&1
+        add_layer_if_missing "$POKY_DIR/meta-raspberrypi"
     else
         echo "ADVERTENCIA: Seleccionaste RPi4 pero no se encontró $POKY_DIR/meta-raspberrypi"
     fi
@@ -110,7 +127,7 @@ fi
 
 for layer in $LAYERS_CLEAN; do
     echo "Agregando capa custom: $layer"
-    bitbake-layers add-layer "$CUSTOM_LAYERS_DIR/$layer" > /dev/null 2>&1
+    add_layer_if_missing "$CUSTOM_LAYERS_DIR/$layer"
 done
 
 # ==========================================
