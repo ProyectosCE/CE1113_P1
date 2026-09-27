@@ -3,7 +3,7 @@ set -euo pipefail
 
 PROJECT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 POKY_DIR=${POKY_DIR:-"$HOME/poky-scarthgap-5.0.19"}
-MACHINE=""; IMAGE=""; LAYERS="all"; BUILD_DIR=""; NO_UI=0
+MACHINE=""; IMAGE=""; LAYERS="all"; BUILD_DIR=""; NO_UI=0; ENABLE_PWM=0
 
 usage() {
     cat <<'EOF'
@@ -11,6 +11,7 @@ Uso: ./build.sh [opciones]
   -m, --machine qemuarm64|raspberrypi4
   -i, --image ce1113-p1|core-image-minimal|rpi-test-image
   -l, --layers all|none|meta-red,meta-server,...
+      --enable-pwm     Activa meta-pwm (desactivada durante la prueba de audio)
   -p, --poky DIR       Árbol Poky (o variable POKY_DIR)
   -b, --build-dir DIR  Build (por defecto build-<machine>)
       --no-ui          Usa valores por defecto sin menús
@@ -24,6 +25,7 @@ while (($#)); do
         -l|--layers) LAYERS=${2:?faltan las capas}; shift 2;;
         -p|--poky) POKY_DIR=${2:?falta la ruta}; shift 2;;
         -b|--build-dir) BUILD_DIR=${2:?falta el directorio}; shift 2;;
+        --enable-pwm) ENABLE_PWM=1; shift;;
         --no-ui) NO_UI=1; shift;; -h|--help) usage; exit 0;;
         *) printf 'Opción desconocida: %s\n' "$1" >&2; usage >&2; exit 2;;
     esac
@@ -44,6 +46,7 @@ case "$LAYERS" in
     all)
         SELECTED_LAYERS=()
         for layer in "${AVAILABLE_LAYERS[@]}"; do
+            [[ "$layer" != meta-pwm || "$ENABLE_PWM" == 1 ]] || continue
             [[ "$MACHINE" != raspberrypi4 && "$layer" == meta-red ]] || SELECTED_LAYERS+=("$layer")
         done
         ;;

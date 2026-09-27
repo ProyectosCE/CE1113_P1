@@ -6,6 +6,8 @@
 - [Uso de build, check y flash](development/scripts.md)
 - [Integración continua](development/continuos-integration.md)
 - [API de hardware](architecture/hardware-api.md)
+- [Integración y resultados de audio](architecture/audio.md)
+- [Conflicto entre audio analógico y PWM](architecture/audio-pwm-conflict.md)
 - [Crear layers y recetas](development/create-recipe-script.md)
 - [Verificar y grabar imágenes con GUI](development/image-scripts.md)
 - [Estructura del repositorio](development/repository-structure.md)

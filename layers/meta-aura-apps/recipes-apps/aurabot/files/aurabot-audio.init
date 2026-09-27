@@ -1,0 +1,58 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          aurabot-audio
+# Required-Start:    $local_fs
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Servidor persistente de audio AuraBot
+### END INIT INFO
+
+DAEMON=/usr/sbin/aurabot-audio-supervisor
+PIDFILE=/run/aurabot-audio-supervisor.pid
+NAME=aurabot-audio
+
+is_running() {
+    [ -s "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null
+}
+
+case "${1:-}" in
+    start)
+        if is_running; then
+            echo "$NAME ya está activo"
+            exit 0
+        fi
+        mkdir -p /run
+        rm -f "$PIDFILE"
+        echo "Iniciando $NAME"
+        start-stop-daemon --start --quiet --background --make-pidfile \
+            --pidfile "$PIDFILE" --exec "$DAEMON"
+        ;;
+    stop)
+        echo "Deteniendo $NAME"
+        if is_running; then
+            start-stop-daemon --stop --quiet --retry TERM/5/KILL/5 \
+                --pidfile "$PIDFILE"
+        fi
+        rm -f "$PIDFILE"
+        ;;
+    restart|force-reload)
+        "$0" stop
+        sleep 1
+        "$0" start
+        ;;
+    status)
+        if is_running; then
+            echo "$NAME está activo (PID $(cat "$PIDFILE"))"
+            exit 0
+        fi
+        echo "$NAME no está activo"
+        exit 3
+        ;;
+    *)
+        echo "Uso: $0 {start|stop|restart|force-reload|status}"
+        exit 2
+        ;;
+esac
+
+exit 0

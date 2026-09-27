@@ -86,6 +86,43 @@
 
         </section>
 
+        <section class="card">
+
+            <h2>Prueba de audio MP3</h2>
+            <p>Reproduce el archivo de prueba por la salida ALSA seleccionada.</p>
+
+            <div class="field">
+                <label for="audio-device">Dispositivo de salida</label>
+                <select id="audio-device">
+                    <option value="">Buscando dispositivos ALSA...</option>
+                </select>
+                <small id="audio-device-hint">
+                    La salida marcada como «jack 3.5 mm» es la salida analógica.
+                </small>
+            </div>
+
+            <div class="button-grid">
+                <button id="audio-device-apply">Usar dispositivo</button>
+                <button id="audio-device-refresh">Actualizar lista</button>
+            </div>
+
+            <div class="field audio-volume-field">
+                <label for="audio-volume">
+                    Volumen del jack: <output id="audio-volume-value">70%</output>
+                </label>
+                <input id="audio-volume" type="range" min="0" max="100"
+                    step="1" value="70" aria-label="Volumen del jack analógico">
+                <small>0% silencia la salida y 100% establece el nivel máximo.</small>
+            </div>
+
+            <div class="button-grid">
+                <button data-operation="audio-play">Play</button>
+                <button data-operation="audio-pause">Pausa</button>
+                <button data-operation="audio-stop">Stop</button>
+            </div>
+
+        </section>
+
 
         <section class="card result-card">
 
