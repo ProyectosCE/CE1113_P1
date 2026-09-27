@@ -9,4 +9,8 @@ int Pausar(void);
 
 int Stop(void);
 
+int AjustarVolumen(const char *audio_device, int volume_percent);
+
+int FinalizarSonido(void);
+
 #endif

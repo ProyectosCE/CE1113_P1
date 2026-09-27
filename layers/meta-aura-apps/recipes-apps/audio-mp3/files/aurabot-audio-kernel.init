@@ -1,0 +1,46 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          aurabot-audio-kernel
+# Required-Start:    $local_fs
+# Required-Stop:
+# Default-Start:     S
+# Default-Stop:
+# Short-Description: Habilita el jack analógico de Raspberry Pi
+### END INIT INFO
+
+case "${1:-}" in
+    start)
+        if modprobe snd-bcm2835 enable_headphones=1 enable_hdmi=0; then
+            sleep 1
+            if grep -qi headphones /proc/asound/cards 2>/dev/null; then
+                logger -t aurabot-audio "tarjeta analógica Headphones disponible"
+                exit 0
+            fi
+            logger -t aurabot-audio \
+                "snd-bcm2835 cargó, pero no creó la tarjeta Headphones"
+            echo "snd-bcm2835 cargó, pero no apareció Headphones" >&2
+            exit 1
+        else
+            result=$?
+            logger -t aurabot-audio \
+                "falló modprobe snd-bcm2835 (código $result, kernel $(uname -r))"
+            echo "Falló modprobe snd-bcm2835 para kernel $(uname -r)" >&2
+            exit "$result"
+        fi
+        ;;
+    stop)
+        # No se descarga: el servidor puede estar usando el dispositivo.
+        ;;
+    restart|force-reload)
+        "$0" start
+        ;;
+    status)
+        grep -qi headphones /proc/asound/cards 2>/dev/null
+        ;;
+    *)
+        echo "Uso: $0 {start|stop|restart|force-reload|status}"
+        exit 2
+        ;;
+esac
+
+exit 0

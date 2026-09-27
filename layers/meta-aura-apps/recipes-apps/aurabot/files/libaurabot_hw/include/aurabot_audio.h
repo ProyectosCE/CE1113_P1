@@ -19,6 +19,10 @@ aurabot_hw_status_t aurabot_audio_pause(void);
 
 aurabot_hw_status_t aurabot_audio_stop(void);
 
+aurabot_hw_status_t aurabot_audio_set_device(
+    const char *audio_device
+);
+
 aurabot_hw_status_t aurabot_audio_set_volume(
     int volume_percent
 );

@@ -1,8 +1,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "../include/libaudio.h"
@@ -125,4 +127,72 @@ int Pausar(void)
 int Stop(void)
 {
     return EnviarComando("STOP");
+}
+
+
+int AjustarVolumen(const char *audio_device, int volume_percent)
+{
+    char mixer_device[128];
+    char volume[8];
+    const char *device_start;
+    const char *device_end;
+    pid_t pid;
+    int status;
+
+    if (audio_device == NULL || volume_percent < 0 || volume_percent > 100) {
+        return -1;
+    }
+
+    /* Convierte plughw:Headphones,0 en el dispositivo de control
+     * hw:Headphones. amixer controla el jack mediante el elemento PCM. */
+    device_start = strncmp(audio_device, "plughw:", 7) == 0
+        ? audio_device + 7 : audio_device;
+    device_end = strchr(device_start, ',');
+    if (device_end == NULL) {
+        device_end = device_start + strlen(device_start);
+    }
+    if (device_end == device_start ||
+        (size_t)(device_end - device_start) > sizeof(mixer_device) - 4) {
+        return -1;
+    }
+    snprintf(mixer_device, sizeof(mixer_device), "hw:%.*s",
+        (int)(device_end - device_start), device_start);
+    snprintf(volume, sizeof(volume), "%d%%", volume_percent);
+
+    pid = fork();
+    if (pid < 0) {
+        return -1;
+    }
+    if (pid == 0) {
+        execlp("amixer", "amixer", "-q", "-D", mixer_device,
+            "sset", "PCM", volume, (char *)NULL);
+        _exit(127);
+    }
+    if (waitpid(pid, &status, 0) < 0) {
+        return -1;
+    }
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0 ? 0 : -1;
+}
+
+
+int FinalizarSonido(void)
+{
+    if (g_pid <= 0) {
+        return 0;
+    }
+
+    EnviarComando("QUIT");
+    if (g_fd >= 0) {
+        close(g_fd);
+        g_fd = -1;
+    }
+
+    if (waitpid(g_pid, NULL, 0) < 0 && errno != ECHILD) {
+        return -1;
+    }
+
+    g_pid = -1;
+    unlink(g_fifo_path);
+    g_fifo_path[0] = '\0';
+    return 0;
 }

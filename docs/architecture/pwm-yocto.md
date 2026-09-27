@@ -88,6 +88,10 @@ conflicto con `pwm-2chan`. Un nombre ALSA como `plughw:2,0` no identifica de
 forma estable el hardware. En la placa se debe comprobar antes de conectar los
 motores:
 
+La causa de hardware, los recursos compartidos y las opciones para disponer de
+audio y control de motores a la vez están documentados en
+[Conflicto entre audio analógico y PWM](audio-pwm-conflict.md).
+
 ```sh
 cat /proc/asound/cards
 cat /proc/asound/pcm

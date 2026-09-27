@@ -71,7 +71,8 @@ label {
     font-weight: 600;
 }
 
-input {
+input,
+select {
     width: 100%;
     padding: 11px 12px;
 
@@ -81,9 +82,28 @@ input {
     font-size: 1rem;
 }
 
-input:focus {
+input:focus,
+select:focus {
     outline: 2px solid #93c5fd;
     border-color: #2563eb;
+}
+
+#audio-device-hint {
+    color: #64748b;
+}
+
+.audio-volume-field {
+    margin-top: 20px;
+}
+
+#audio-volume {
+    padding: 0;
+    accent-color: #2563eb;
+}
+
+#audio-volume-value {
+    color: #2563eb;
+    font-weight: 700;
 }
 
 .button-grid {

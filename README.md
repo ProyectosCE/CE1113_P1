@@ -38,29 +38,40 @@ Consulte el [índice de documentación](docs/README.md), en particular:
 - [imágenes disponibles](docs/yocto/images.md);
 - [scripts de compilación, comprobación y grabación](docs/development/scripts.md);
 - [guía para añadir funcionalidades](docs/yocto/extending.md).
+- [integración y resultados de audio](docs/architecture/audio.md).
 
 ## Notas de audio
 
-Para configuración de audio:
+Durante la prueba del jack de 3.5 mm, `build.sh` excluye `meta-pwm` de la
+selección `all`, porque el audio analógico y los motores usan el mismo bloque
+PWM. Para volver a incluir esa capa se debe usar `--enable-pwm`, sabiendo que el
+jack analógico dejará de estar disponible.
 
+Construir la imagen de prueba:
 
-mpg123 -o alsa -a plughw:2,0 tu_archivo.mp3 
+```sh
+./build.sh --no-ui --machine raspberrypi4 --image ce1113-p1
+```
 
-para segundo plano:
+Después de arrancar la Raspberry Pi:
 
+```sh
+/etc/init.d/aurabot-audio status
+/etc/init.d/webapp-httpd status
+aplay -l
+```
 
-esto es lo que hace la funcion de cargar 
+La página web presenta controles **Play**, **Pausa** y **Stop**. Play reproduce
+`/usr/share/aurabot/audio/test.mp3`. El servicio intenta encontrar la tarjeta
+ALSA cuyo identificador contiene `Headphones`; puede sobrescribirse creando
+`/etc/default/aurabot-audio` con, por ejemplo:
 
-mkfifo /tmp/mpg123.cmd
+```sh
+AURABOT_AUDIO_DEVICE="plughw:Headphones,0"
+```
 
-mpg123 -R \
-    -o alsa \
-    -a plughw:2,0 \
-    < /tmp/mpg123.cmd \
-    > /tmp/mpg123.log 2>&1 &
+Después se aplica el cambio con:
 
-echo $! > /tmp/mpg123.pid
-
-exec 3>/tmp/mpg123.cmd
-
-echo "LOAD cancion.mp3" >&3
+```sh
+/etc/init.d/aurabot-audio restart
+```
