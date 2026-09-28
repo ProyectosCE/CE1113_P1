@@ -129,6 +129,12 @@ int Stop(void)
     return EnviarComando("STOP");
 }
 
+int CargarListaReproduccion(void)
+{
+    return EnviarComando("LOADLIST 1 /usr/share/sounds/musica/playlist.txt");
+}
+
+
 
 int AjustarVolumen(const char *audio_device, int volume_percent)
 {
