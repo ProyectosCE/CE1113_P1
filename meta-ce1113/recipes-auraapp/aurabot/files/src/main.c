@@ -7,20 +7,15 @@
 
 int main(){
 
-    aurabot_hw_init();
+    int pin = 17; // GPIO pin number
+    int freq = 2; // Frequency in Hz
+    int duty = 50; // Duty cycle in percentage
 
-    pinMode(0, "out");
-    digitalWrite(0, 1);
+    setPWM(pin, freq, duty);  // Motor 1: 100 Hz, 50 %
 
-   sleep(1);
-
-   aurabot_audio_play_file("/home/musica/lean.mp3");
-    
-   sleep(5);
-
-   aurabot_audio_pause();
-
-   aurabot_hw_shutdown();
+    while(1){
+        sleep(1);
+    }
 
 
 }
