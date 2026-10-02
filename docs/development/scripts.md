@@ -1,46 +1,64 @@
-# Scripts de compilación, comprobación y grabación
+# Scripts del proyecto
 
-`POKY_DIR` puede definir el árbol Poky; el valor predeterminado es
+`POKY_DIR` puede señalar el árbol Poky. Su valor predeterminado es
 `$HOME/poky-scarthgap-5.0.19`.
 
 ## `build.sh`
 
-Configura el build, mantiene activa `meta-ce1113`, selecciona capas y ejecuta
-BitBake. En terminal puede mostrar menús; para automatización use `--no-ui`.
+Limpia referencias a capas antiguas, activa `meta-raspberrypi` y `meta-ce1113`,
+construye la única combinación `ce1113-p1`/`raspberrypi4` y verifica el resultado.
 
 ```bash
-./build.sh -m raspberrypi4 -i ce1113-p1 -l all --no-ui
-./build.sh -m qemuarm64 -i ce1113-p1 -l none --no-ui
-./build.sh -m raspberrypi4 -l meta-red,meta-server --no-ui
+./build.sh --no-ui
+./build.sh --no-ui --build-dir build-raspberrypi4
 ```
 
-Requiere Poky Scarthgap y, para RPi, `meta-raspberrypi` dentro de Poky. El build
-predeterminado es `<poky>/build-<máquina>`. `meta-red` depende del BSP y se omite
-de `--layers all` en QEMU; pedirla explícitamente fuera de RPi es un error.
+Reutiliza el build, descargas y sstate existentes. `--skip-check` omite la
+validación final solo para diagnóstico; no debe usarse antes de flashear.
 
 ## `check_image.sh`
 
-Lee el manifest del build/máquina exactos, muestra artefactos y paquetes propios:
+Comprueba manifest, paquetes obligatorios, módulo del jack, lectura completa del
+WIC, SHA-256 y una huella del contenido de la metadata activa. Devuelve un código
+de error si falla cualquiera de esas reglas. No compara fechas de archivos,
+porque Git puede cambiarlas aunque BitBake determine que el contenido es igual.
 
 ```bash
-./check_image.sh -m raspberrypi4 -i ce1113-p1
-./check_image.sh -m qemuarm64 -b /ruta/build-qemuarm64
+./check_image.sh
+./check_image.sh --no-ui --report /tmp/integridad.txt
+./check_image.sh --no-ui --build-dir /ruta/build-raspberrypi4
 ```
-
-`[--]` puede indicar una capa deliberadamente no seleccionada.
 
 ## `flash_sd.sh`
 
-Graba el `.wic.bz2`/`.wic` más reciente. Exige el disco completo y rechaza por
-defecto dispositivos no removibles:
+Vuelve a ejecutar la verificación antes de borrar y solo acepta un disco completo
+removible, USB o MMC que no sea el disco raíz.
 
 ```bash
-lsblk -o NAME,SIZE,MODEL,TRAN,RM,MOUNTPOINTS
+./flash_sd.sh
 ./flash_sd.sh --device /dev/sdX
 ```
 
-La operación destruye todo el dispositivo. Nunca use una partición como
-`/dev/sdX1`. `--yes` omite la confirmación y `--force` admite discos no marcados
-como removibles; ambos se reservan para casos controlados.
+La operación destruye todos los datos. `--yes` omite la confirmación, pero no
+las comprobaciones de integridad, tipo de dispositivo o protección del disco raíz.
 
-Flujo recomendado: `build.sh` → `check_image.sh` → `flash_sd.sh`.
+## `scripts/check-repository.sh`
+
+Es la entrada estable para desarrollo y CI. Comprueba estructura, categorías,
+packagegroups, nombres, `.bbappend`, ubicación de fuentes, documentación y
+sintaxis. `validate-repository.sh` se conserva como implementación compatible.
+
+## `scripts/create-recipe.sh`
+
+Funciona como asistente o sin interacción:
+
+```bash
+./scripts/create-recipe.sh
+./scripts/create-recipe.sh --category webapp --name mi-panel --version 1.0.0
+```
+
+Flujo recomendado:
+
+```text
+check-repository.sh → build.sh → comprobación automática → flash_sd.sh
+```

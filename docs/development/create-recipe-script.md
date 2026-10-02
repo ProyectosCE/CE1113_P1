@@ -1,26 +1,42 @@
 # Asistente para crear recetas
 
+Modo interactivo:
+
 ```bash
 ./scripts/create-recipe.sh
 ```
 
-El script detecta dinámicamente los `layers/meta-*` válidos. Permite seleccionar
-uno o crear un layer nuevo y después solicita el nombre de la receta.
+Modo automatizable:
 
-Para `mi-servicio` genera:
-
-```text
-layers/meta-<layer>/
-├── recipes-apps/mi-servicio/
-│   ├── files/.gitkeep
-│   └── mi-servicio_1.0.0.bb
-└── recipes-core/images/<imagen-principal>.bbappend
+```bash
+./scripts/create-recipe.sh --category api --name telemetria --version 1.0.0
 ```
 
-La receta inicial usa `ALLOW_EMPTY`, por lo que es válida antes de añadir código.
-Después se agregan manualmente `SRC_URI`, archivos, dependencias, clases y tareas
-de instalación. El asistente nunca sobrescribe una receta existente ni duplica
-el paquete en el `.bbappend`.
+Las categorías permitidas son `hw`, `webapp`, `api` y `auraapp`. Para
+`telemetria`, el script crea:
 
-El nombre del `.bbappend` no está fijado en el script: se detecta leyendo la única
-receta `.bb` presente en `meta-ce1113/recipes-core/images`.
+```text
+meta-ce1113/
+├── recipes-api/telemetria/
+│   ├── files/.gitkeep
+│   └── telemetria_1.0.0.bb
+└── recipes-core/packagegroups/packagegroup-ce1113-api.bb
+```
+
+La receta inicial usa `ALLOW_EMPTY`, de modo que puede validarse antes de añadir
+código. El script registra el paquete en el grupo del área, no modifica la
+imagen ni `layer.conf`, rechaza categorías/nombres/versiones inválidos y nunca
+sobrescribe un directorio existente.
+
+Después deben añadirse manualmente `SRC_URI`, fuentes, dependencias, clases y
+`do_install`. Finalmente:
+
+```bash
+./scripts/check-repository.sh
+./build.sh --no-ui
+```
+
+Este asistente crea recetas propias. Para modificar BusyBox, kernel, bootfiles u
+otra receta externa, cree el `.bbappend` en la categoría adecuada conservando el
+nombre base externo: `nombre.bbappend`, `nombre_versión.bbappend` o
+`nombre_%.bbappend`.

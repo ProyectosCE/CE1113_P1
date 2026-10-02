@@ -15,7 +15,7 @@ La validación local equivalente es:
 
 ```bash
 ./scripts/validate-repository.sh
-cmake -S layers/meta-aura-apps/recipes-apps/aurabot/files -B build-native
+cmake -S meta-ce1113/recipes-auraapp/aurabot/files -B build-native
 cmake --build build-native --parallel
 ```
 

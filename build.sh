@@ -3,18 +3,19 @@ set -euo pipefail
 
 PROJECT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 POKY_DIR=${POKY_DIR:-"$HOME/poky-scarthgap-5.0.19"}
-MACHINE=""; IMAGE=""; LAYERS="all"; BUILD_DIR=""; NO_UI=0; ENABLE_PWM=0
+MACHINE=""; IMAGE=""; BUILD_DIR=""; NO_UI=0; SKIP_CHECK=0
+# shellcheck source=scripts/lib/image-common.sh
+source "$PROJECT_DIR/scripts/lib/image-common.sh"
 
 usage() {
     cat <<'EOF'
 Uso: ./build.sh [opciones]
-  -m, --machine qemuarm64|raspberrypi4
-  -i, --image ce1113-p1|core-image-minimal|rpi-test-image
-  -l, --layers all|none|meta-red,meta-server,...
-      --enable-pwm     Activa meta-pwm (desactivada durante la prueba de audio)
+  -m, --machine raspberrypi4
+  -i, --image ce1113-p1
   -p, --poky DIR       Árbol Poky (o variable POKY_DIR)
   -b, --build-dir DIR  Build (por defecto build-<machine>)
       --no-ui          Usa valores por defecto sin menús
+      --skip-check     No verifica los artefactos al terminar
 EOF
 }
 
@@ -22,39 +23,19 @@ while (($#)); do
     case "$1" in
         -m|--machine) MACHINE=${2:?falta la máquina}; shift 2;;
         -i|--image) IMAGE=${2:?falta la imagen}; shift 2;;
-        -l|--layers) LAYERS=${2:?faltan las capas}; shift 2;;
         -p|--poky) POKY_DIR=${2:?falta la ruta}; shift 2;;
         -b|--build-dir) BUILD_DIR=${2:?falta el directorio}; shift 2;;
-        --enable-pwm) ENABLE_PWM=1; shift;;
-        --no-ui) NO_UI=1; shift;; -h|--help) usage; exit 0;;
+        --no-ui) NO_UI=1; shift;;
+        --skip-check) SKIP_CHECK=1; shift;;
+        -h|--help) usage; exit 0;;
         *) printf 'Opción desconocida: %s\n' "$1" >&2; usage >&2; exit 2;;
     esac
 done
 
-if ((NO_UI == 0)) && command -v whiptail >/dev/null && [[ -t 0 ]]; then
-    [[ -n "$MACHINE" ]] || MACHINE=$(whiptail --title "Máquina" --radiolist "Destino:" 12 65 2 qemuarm64 "Emulador ARM64" ON raspberrypi4 "Raspberry Pi 4" OFF 3>&1 1>&2 2>&3) || exit 1
-    [[ -n "$IMAGE" ]] || IMAGE=$(whiptail --title "Imagen" --radiolist "Receta:" 14 72 3 ce1113-p1 "Imagen principal CE1113" ON core-image-minimal "Diagnóstico mínimo" OFF rpi-test-image "Pruebas Raspberry Pi" OFF 3>&1 1>&2 2>&3) || exit 1
-fi
-MACHINE=${MACHINE:-qemuarm64}; IMAGE=${IMAGE:-ce1113-p1}; BUILD_DIR=${BUILD_DIR:-"build-$MACHINE"}
-[[ "$MACHINE" =~ ^(qemuarm64|raspberrypi4)$ ]] || { echo "Máquina no permitida: $MACHINE" >&2; exit 2; }
-[[ "$IMAGE" =~ ^(ce1113-p1|core-image-minimal|rpi-test-image)$ ]] || { echo "Imagen no permitida: $IMAGE" >&2; exit 2; }
-[[ "$IMAGE" != rpi-test-image || "$MACHINE" == raspberrypi4 ]] || { echo "rpi-test-image requiere raspberrypi4" >&2; exit 2; }
+MACHINE=${MACHINE:-raspberrypi4}; IMAGE=${IMAGE:-ce1113-p1}; BUILD_DIR=${BUILD_DIR:-"build-$MACHINE"}
+[[ "$MACHINE" == raspberrypi4 ]] || { echo "Este producto solo admite raspberrypi4" >&2; exit 2; }
+[[ "$IMAGE" == ce1113-p1 ]] || { echo "La única imagen del producto es ce1113-p1" >&2; exit 2; }
 [[ -f "$POKY_DIR/oe-init-build-env" ]] || { echo "No existe $POKY_DIR/oe-init-build-env" >&2; exit 1; }
-
-mapfile -t AVAILABLE_LAYERS < <(find "$PROJECT_DIR/layers" -mindepth 1 -maxdepth 1 -type d -name 'meta-*' -printf '%f\n' | sort)
-case "$LAYERS" in
-    all)
-        SELECTED_LAYERS=()
-        for layer in "${AVAILABLE_LAYERS[@]}"; do
-            [[ "$layer" != meta-pwm || "$ENABLE_PWM" == 1 ]] || continue
-            [[ "$MACHINE" != raspberrypi4 && "$layer" == meta-red ]] || SELECTED_LAYERS+=("$layer")
-        done
-        ;;
-    none|'') SELECTED_LAYERS=();;
-    *) IFS=',' read -r -a SELECTED_LAYERS <<< "$LAYERS";;
-esac
-for layer in "${SELECTED_LAYERS[@]}"; do [[ -f "$PROJECT_DIR/layers/$layer/conf/layer.conf" ]] || { echo "Capa desconocida: $layer" >&2; exit 2; }; done
-[[ "$MACHINE" == raspberrypi4 || ! " ${SELECTED_LAYERS[*]} " =~ [[:space:]]meta-red[[:space:]] ]] || { echo "meta-red requiere raspberrypi4" >&2; exit 2; }
 
 cd "$POKY_DIR"
 # oe-init-build-env de Scarthgap consulta variables opcionales como BBSERVER sin
@@ -100,9 +81,6 @@ add_layer_if_missing() {
     fi
 }
 
-# Capa base del proyecto
-add_layer_if_missing "$PROJECT_DIR/meta-ce1113"
-
 # Dependencias específicas de Raspberry Pi
 if [[ "$MACHINE" == raspberrypi4 ]]; then
     if [[ -f "$POKY_DIR/meta-raspberrypi/conf/layer.conf" ]]; then
@@ -113,17 +91,29 @@ if [[ "$MACHINE" == raspberrypi4 ]]; then
     fi
 fi
 
-# Capas seleccionadas por el usuario
-for layer in "${SELECTED_LAYERS[@]}"; do
-    add_layer_if_missing "$PROJECT_DIR/layers/$layer"
-done
+# Capa única del producto; se añade después de su BSP declarado.
+add_layer_if_missing "$PROJECT_DIR/meta-ce1113"
 
 # ==========================================
 # Ejecutar compilación
 # ==========================================
 echo "-----------------------------------------------------------"
 printf 'Compilando %s para %s\n' "$IMAGE" "$MACHINE"
-printf 'Capas seleccionadas: %s\n' "${SELECTED_LAYERS[*]:-(ninguna)}"
+echo 'Capa del producto: meta-ce1113'
 echo "-----------------------------------------------------------"
 
 bitbake "$IMAGE"
+
+if ((SKIP_CHECK == 0)); then
+    # BitBake decide qué reconstruir mediante hashes de contenido, no por la
+    # fecha de los archivos. Guardar esta huella junto al manifest evita falsos
+    # positivos después de checkout, stash, clone o restauraciones de Git.
+    DEPLOY_DIR=$(ce1113_deploy_dir "$BUILDDIR")
+    MANIFEST=$(ce1113_latest_manifest "$DEPLOY_DIR")
+    if [[ -z "$MANIFEST" ]]; then
+        echo "Error: BitBake terminó pero no produjo el manifest de $IMAGE." >&2
+        exit 1
+    fi
+    ce1113_metadata_digest "$PROJECT_DIR" > "${MANIFEST}.metadata.sha256"
+    "$PROJECT_DIR/check_image.sh" --no-ui --build-dir "$BUILDDIR"
+fi

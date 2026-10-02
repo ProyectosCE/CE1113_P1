@@ -176,7 +176,10 @@ sysfs no convierte el periférico compartido en dos bloques independientes.
 
 ### Modo de audio validado
 
-`layers/meta-aura-apps/conf/layer.conf` añade:
+`meta-ce1113/recipes-hw/bootfiles/rpi-config_git.bbappend` añade
+`dtparam=audio=on`, mientras
+`meta-ce1113/recipes-hw/linux/linux-raspberrypi_%.bbappend` solicita la carga
+del módulo:
 
 ```bitbake
 RPI_EXTRA_CONFIG:append:raspberrypi4 = " \n \
@@ -189,19 +192,13 @@ KERNEL_MODULE_AUTOLOAD:append:raspberrypi4 = " snd-bcm2835"
 El audio instala además el módulo `kernel-module-snd-bcm2835`, fuerza la salida
 de auriculares y deshabilita las tarjetas HDMI del driver legado.
 
-En este modo, `build.sh` omite `meta-pwm` de la selección normal de capas.
+En este modo, `build.sh` no incorpora `meta-pwm` a `BBLAYERS`.
 
 ### Modo PWM explícito
 
-`layers/meta-pwm/conf/layer.conf` añade `pwm-2chan.dtbo` y la asignación a
-GPIO12/GPIO13. Esta capa solo se incluye deliberadamente con:
-
-```sh
-./build.sh --enable-pwm
-```
-
-Esta opción debe entenderse como un cambio al modo de motores, no como una
-función adicional compatible con el jack analógico.
+`layers/meta-pwm/conf/layer.conf` conserva como referencia experimental la
+configuración de `pwm-2chan` para GPIO12/GPIO13. No forma parte del producto ni
+existe una opción de `build.sh` que la active.
 
 ## Por qué algunas soluciones aparentes no funcionan
 
@@ -328,7 +325,7 @@ dmesg | grep -Ei 'pwm|snd|audio|bcm2835|busy|resource'
 ## Regla para el proyecto
 
 Mientras AuraBot utilice el jack de 3.5 mm de la Raspberry Pi 4 y PWM0/PWM1
-para los dos motores, `meta-aura-apps` y `meta-pwm` representan modos de
+para los dos motores, `meta-ce1113` y `meta-pwm` representan modos de
 hardware mutuamente excluyentes.
 
 La regla de construcción es:
@@ -348,6 +345,6 @@ el PWM interno.
 - [Raspberry Pi 4 Model B Datasheet](https://datasheets.raspberrypi.com/rpi4/raspberry-pi-4-datasheet.pdf), descripción de la salida analógica de audio.
 - [Choosing an Audio Option](https://pip-assets.raspberrypi.com/categories/1259/audio-camera-and-display/documents/RP-008124-WP/Choosing-an-Audio-option.pdf), alternativas oficiales de audio para placas Raspberry Pi.
 - `layers/meta-pwm/conf/layer.conf`, configuración PWM concreta de AuraBot.
-- `layers/meta-aura-apps/conf/layer.conf`, configuración del jack analógico.
+- `meta-ce1113/recipes-hw/bootfiles/rpi-config_git.bbappend`, configuración del jack analógico.
 - `docs/architecture/audio.md`, integración y validación del subsistema de audio.
 - `docs/architecture/pwm-yocto.md`, integración y validación del subsistema PWM.

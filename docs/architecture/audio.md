@@ -24,7 +24,7 @@ completo de módulos y reglas de la máquina Raspberry Pi que normalmente llega
 mediante `core-image-base`.
 
 Para conservar intacta la receta principal de `meta-ce1113`, el soporte se
-restauró desde `meta-aura-apps`:
+restauró desde `meta-ce1113`:
 
 ```bitbake
 IMAGE_INSTALL:append:raspberrypi4 = " \
@@ -47,7 +47,7 @@ de soporte de máquina existente entre la imagen mínima y la imagen histórica.
 
 ## Configuración de arranque y kernel
 
-La capa `meta-aura-apps` añade para `raspberrypi4`:
+La capa `meta-ce1113` añade para `raspberrypi4`:
 
 ```bitbake
 RPI_EXTRA_CONFIG:append:raspberrypi4 = " \n \
@@ -91,17 +91,17 @@ La explicación detallada del periférico compartido, sus canales y las
 alternativas de arquitectura se encuentra en
 [Conflicto entre audio analógico y PWM](audio-pwm-conflict.md).
 
-Durante la prueba se mantuvo PWM desactivado y se verificó que el `config.txt`
-generado tuviera `dtparam=audio=on` sin ningún `dtoverlay=pwm`. El script
-`build.sh` excluye `meta-pwm` de la selección normal; solo se vuelve a incluir
-deliberadamente con `--enable-pwm`.
+Durante la prueba se mantuvo PWM por hardware desactivado y se verificó que el
+`config.txt` generado tuviera `dtparam=audio=on` sin ningún `dtoverlay=pwm`.
+`build.sh` solo activa `meta-ce1113`; la capa experimental `meta-pwm` queda
+fuera de `BBLAYERS`.
 
 ## Receta `audio-mp3`
 
 La receta está en:
 
 ```text
-layers/meta-aura-apps/recipes-apps/audio-mp3/audio-mp3_1.0.0.bb
+meta-ce1113/recipes-auraapp/audio-mp3/audio-mp3_1.0.0.bb
 ```
 
 Instala estos paquetes de ejecución:
@@ -113,19 +113,18 @@ RDEPENDS:${PN} = " \
     alsa-utils-amixer \
     alsa-utils-alsamixer \
     mpg123 \
+    ce1113-audio-config \
 "
-
-RDEPENDS:${PN}:append:raspberrypi4 = " kernel-module-snd-bcm2835"
 ```
 
-También instala:
+`audio-mp3` instala `/usr/share/aurabot/audio/test.mp3`. La receta separada
+`ce1113-audio-config` instala:
 
-- `/usr/share/aurabot/audio/test.mp3`;
 - `/etc/modprobe.d/snd-bcm2835.conf`;
 - `/etc/init.d/aurabot-audio-kernel`.
 
-`PACKAGECONFIG:append:pn-mpg123 = " alsa"` garantiza que `mpg123` use la
-salida ALSA.
+El `.bbappend` externo de `mpg123` añade `PACKAGECONFIG:append = " alsa"` para
+garantizar la salida ALSA.
 
 ## Implementación en C
 
@@ -299,20 +298,20 @@ cat /tmp/mpg123.log
 
 | Función | Archivo |
 | --- | --- |
-| Configuración global de la capa | `layers/meta-aura-apps/conf/layer.conf` |
-| Inclusión en la imagen | `layers/meta-aura-apps/recipes-core/images/ce1113-p1.bbappend` |
-| Parámetros del kernel | `layers/meta-aura-apps/recipes-bsp/bootfiles/rpi-cmdline.bbappend` |
-| Paquetes, módulo y MP3 | `layers/meta-aura-apps/recipes-apps/audio-mp3/audio-mp3_1.0.0.bb` |
-| Configuración modprobe | `layers/meta-aura-apps/recipes-apps/audio-mp3/files/snd-bcm2835.conf` |
-| Diagnóstico temprano | `layers/meta-aura-apps/recipes-apps/audio-mp3/files/aurabot-audio-kernel.init` |
-| Receta de la aplicación | `layers/meta-aura-apps/recipes-apps/aurabot/aurabot_1.0.0.bb` |
-| Servidor C | `layers/meta-aura-apps/recipes-apps/aurabot/files/src/aurabot-audio-server.c` |
-| Servicio persistente | `layers/meta-aura-apps/recipes-apps/aurabot/files/aurabot-audio.init` |
-| Supervisor | `layers/meta-aura-apps/recipes-apps/aurabot/files/aurabot-audio-supervisor` |
-| Backend `mpg123` | `layers/meta-aura-apps/recipes-apps/aurabot/files/libaudio/lib/libaudio.c` |
-| API de audio | `layers/meta-aura-apps/recipes-apps/aurabot/files/libaurabot_hw/lib/audio.c` |
-| CGI | `layers/meta-server/recipes-web/webapp/files/operaciones.cgi.c` |
-| Interfaz web | `layers/meta-server/recipes-web/webapp/files/index.html` y `app.js` |
+| Configuración global de la capa | `meta-ce1113/recipes-hw/bootfiles/rpi-config_git.bbappend` |
+| Inclusión en la imagen | `meta-ce1113/recipes-core/packagegroups/packagegroup-ce1113-hw.bb` |
+| Parámetros del kernel | `meta-ce1113/recipes-hw/bootfiles/rpi-cmdline.bbappend` |
+| Paquetes, módulo y MP3 | `meta-ce1113/recipes-auraapp/audio-mp3/audio-mp3_1.0.0.bb` |
+| Configuración modprobe | `meta-ce1113/recipes-hw/audio-config/files/snd-bcm2835.conf` |
+| Diagnóstico temprano | `meta-ce1113/recipes-hw/audio-config/files/aurabot-audio-kernel.init` |
+| Receta de la aplicación | `meta-ce1113/recipes-auraapp/aurabot/aurabot_1.0.0.bb` |
+| Servidor C | `meta-ce1113/recipes-auraapp/aurabot/files/src/aurabot-audio-server.c` |
+| Servicio persistente | `meta-ce1113/recipes-auraapp/aurabot/files/aurabot-audio.init` |
+| Supervisor | `meta-ce1113/recipes-auraapp/aurabot/files/aurabot-audio-supervisor` |
+| Backend `mpg123` | `meta-ce1113/recipes-auraapp/aurabot/files/libaudio/lib/libaudio.c` |
+| API de audio | `meta-ce1113/recipes-auraapp/aurabot/files/libaurabot_hw/lib/audio.c` |
+| CGI | `meta-ce1113/recipes-webapp/webapp/files/operaciones.cgi.c` |
+| Interfaz web | `meta-ce1113/recipes-webapp/webapp/files/index.html` y `app.js` |
 
 ## Resultado final
 

@@ -28,9 +28,10 @@ Mediante el desarrollo de este proyecto, cada grupo de trabajo aplicará los con
 
 ## Desarrollo
 
-La imagen principal es `ce1113-p1` y su definición permanece aislada en
-`meta-ce1113`. El código C/CMake se compila mediante la receta `aurabot` de
-`layers/meta-aura-apps`.
+La imagen principal es `ce1113-p1`. Todas las recetas activas están dentro de
+`meta-ce1113`, organizadas en `recipes-hw`, `recipes-webapp`, `recipes-api` y
+`recipes-auraapp`. La imagen instala un único `packagegroup-ce1113`; los grupos
+por área mantienen la composición sin modificar la receta de imagen.
 
 Consulte el [índice de documentación](docs/README.md), en particular:
 
@@ -42,10 +43,9 @@ Consulte el [índice de documentación](docs/README.md), en particular:
 
 ## Notas de audio
 
-Durante la prueba del jack de 3.5 mm, `build.sh` excluye `meta-pwm` de la
-selección `all`, porque el audio analógico y los motores usan el mismo bloque
-PWM. Para volver a incluir esa capa se debe usar `--enable-pwm`, sabiendo que el
-jack analógico dejará de estar disponible.
+El producto actual utiliza el jack de 3.5 mm y PWM por software. La capa
+experimental `layers/meta-pwm`, correspondiente al PWM por hardware, se
+conserva fuera del build y `build.sh` no la añade a `BBLAYERS`.
 
 Construir la imagen de prueba:
 
