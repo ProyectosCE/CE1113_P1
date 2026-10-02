@@ -110,7 +110,7 @@ meta-ce1113/
 ```
 
 El código C/CMake vive en la receta
-`layers/meta-aura-apps/recipes-apps/aurabot` y la imagen final conserva el nombre
+`meta-ce1113/recipes-auraapp/aurabot` y la imagen final conserva el nombre
 `ce1113-p1`. La imagen completa se genera con BitBake sin
 compilar ni copiar binarios manualmente después sobre la Raspberry Pi.
 
