@@ -56,7 +56,17 @@ done < <(find layers -type f -path '*/recipes-core/images/*.bbappend' | sort)
 
 while IFS= read -r append; do
     [[ "$append" == */recipes-core/images/ce1113-p1.bbappend ]] && continue
-    [[ $(basename "$append") == *_%.bbappend ]] || fail "un bbappend externo debe declarar versión o comodín explícito: $append"
+    append_name=$(basename "$append")
+    # BitBake admite las tres formas siguientes, según el nombre de la receta:
+    #   foo.bb              -> foo.bbappend
+    #   foo_1.2.bb          -> foo_1.2.bbappend (versión exacta)
+    #   foo_<cualquier>.bb  -> foo_%.bbappend (comodín)
+    # Sin acceso a las capas externas no es posible deducir cuál corresponde;
+    # BitBake detecta después los bbappend huérfanos. Aquí solo se rechaza un
+    # uso de '%' diferente del comodín de versión final "_%".
+    if [[ "$append_name" == *%* && "$append_name" != *_%.bbappend ]]; then
+        fail "comodín bbappend no permitido; use nombre_%.bbappend: $append"
+    fi
     if grep -q 'file://' "$append"; then
         grep -q '^FILESEXTRAPATHS:prepend' "$append" || fail "$append usa file:// sin FILESEXTRAPATHS:prepend"
     fi

@@ -17,7 +17,11 @@ jobs:
       - name: Obtener repositorio
         uses: actions/checkout@v6
       - name: Validar estructura, nombres, capas y recetas
-        run: ./scripts/validate-repository.sh
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n ./scripts/validate-repository.sh
+          ./scripts/validate-repository.sh
 
   native-cmake-build:
     name: Compilar fuentes de la receta AuraBot
