@@ -12,3 +12,7 @@ IMAGE_LINGUAS = ""
 # - tar.bz2: respaldo/despliegue manual
 # - wic.bz2: imagen completa arrancable para Raspberry Pi
 IMAGE_FSTYPES = "ext4 tar.bz2 wic.bz2"
+
+# La imagen permanece estable. La composición del producto se mantiene en los
+# packagegroups por área para que las nuevas recetas no modifiquen esta receta.
+IMAGE_INSTALL:append = " packagegroup-ce1113"

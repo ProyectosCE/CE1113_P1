@@ -42,8 +42,9 @@ usar el mismo periodo de 1 000 000 ns (1000 Hz).
 
 ## Compilación y comprobaciones en el host
 
-La compilación normal se inicia desde el repositorio, seleccionando
-`raspberrypi4`, `CE1113-P1` y la capa `meta-pwm` en los menús:
+Esta capa se conserva solo como referencia experimental y no participa en la
+compilación normal. Para estudiar su metadata debe añadirse manualmente a un
+build separado; `build.sh` genera únicamente el producto con PWM por software.
 
 ```sh
 ./build.sh
@@ -54,7 +55,7 @@ comprobarse desde el directorio de Poky con:
 
 ```sh
 source oe-init-build-env build-raspberrypi4
-bitbake -e CE1113-P1 | grep -E '^(MACHINE|TARGET_ARCH|RPI_KERNEL_DEVICETREE_OVERLAYS|KERNEL_DEVICETREE|RPI_EXTRA_CONFIG)='
+bitbake -e ce1113-p1 | grep -E '^(MACHINE|TARGET_ARCH|RPI_KERNEL_DEVICETREE_OVERLAYS|KERNEL_DEVICETREE|RPI_EXTRA_CONFIG)='
 ```
 
 Comprobar la configuración producida, sin asumir la ruta exacta del directorio

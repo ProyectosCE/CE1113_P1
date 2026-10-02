@@ -17,7 +17,30 @@ jobs:
       - name: Obtener repositorio
         uses: actions/checkout@v6
       - name: Validar estructura, nombres, capas y recetas
-        run: ./scripts/validate-repository.sh
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/check-repository.sh
+      - name: Validar interfaces no interactivas
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./build.sh --help
+          ./check_image.sh --help
+          ./flash_sd.sh --help
+          ./scripts/create-recipe.sh --help
+      - name: Probar creación de receta sin alterar el checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_root=$(mktemp -d)
+          mkdir -p "$test_root/repository/scripts"
+          cp -a meta-ce1113 "$test_root/repository/"
+          cp scripts/create-recipe.sh "$test_root/repository/scripts/"
+          cd "$test_root/repository"
+          ./scripts/create-recipe.sh --category api --name ci-receta --version 1.0.0
+          test -f meta-ce1113/recipes-api/ci-receta/ci-receta_1.0.0.bb
+          grep -q 'ci-receta' meta-ce1113/recipes-core/packagegroups/packagegroup-ce1113-api.bb
 
   native-cmake-build:
     name: Compilar fuentes de la receta AuraBot
@@ -26,7 +49,7 @@ jobs:
       - name: Obtener repositorio
         uses: actions/checkout@v6
       - name: Configurar
-        run: cmake -S layers/meta-aura-apps/recipes-apps/aurabot/files -B build-native -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S meta-ce1113/recipes-auraapp/aurabot/files -B build-native -DCMAKE_BUILD_TYPE=Release
       - name: Compilar
         run: cmake --build build-native --parallel
       - name: Instalar en staging

@@ -52,7 +52,14 @@ ce1113_required_packages() {
         alsa-utils alsa-utils-aplay alsa-utils-alsamixer mpg123 wifi-config
 }
 
-ce1113_sources_newer_than() {
-    find "$1/meta-ce1113" -type f -newer "$2" \
-        -print -quit 2>/dev/null | grep -q .
+ce1113_metadata_digest() {
+    local project_dir=$1
+    (
+        cd "$project_dir"
+        find meta-ce1113 -type f -print0 \
+            | LC_ALL=C sort -z \
+            | xargs -0 sha256sum \
+            | sha256sum \
+            | awk '{print $1}'
+    )
 }

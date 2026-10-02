@@ -1,49 +1,83 @@
 # Añadir funcionalidades a CE1113
 
-`meta-ce1113` no recibe recetas nuevas: conserva exclusivamente la imagen original.
-Toda función, esencial o separable, va en una capa `layers/meta-<módulo>`. Para
-cambiar una receta de Poky/BSP use `.bbappend`, no una copia. Fuentes y
-configuraciones instaladas viven en `files/`.
+Toda la metadata activa vive en `meta-ce1113`. Las recetas se organizan en
+cuatro categorías:
 
 ```text
-layers/meta-ejemplo/
-├── conf/layer.conf
-├── recipes-ejemplo/mi-servicio/
-│   ├── files/{CMakeLists.txt,main.c}
-│   └── mi-servicio_1.0.0.bb
-└── recipes-core/images/ce1113-p1.bbappend
+recipes-hw       hardware, audio, red y configuración de plataforma
+recipes-webapp   servidor HTTP, CGI y frontend
+recipes-api      bibliotecas u operaciones compartidas
+recipes-auraapp  aplicaciones y servicios de AuraBot
+```
+
+`recipes-core` queda reservado para la imagen y los packagegroups.
+
+## Añadir una receta
+
+Una receta nueva se coloca en su categoría y conserva sus fuentes en `files/`:
+
+```text
+meta-ce1113/recipes-auraapp/mi-servicio/
+├── files/
+│   ├── CMakeLists.txt
+│   └── main.c
+└── mi-servicio_1.0.0.bb
 ```
 
 La receta declara `SUMMARY`, `LICENSE`, `LIC_FILES_CHKSUM`, `SRC_URI` y `S`.
-Para CMake use `inherit cmake`; Yocto ya proporciona toolchain y sysroot.
-El `layer.conf` usa una colección única y contiene:
+Para CMake use `inherit cmake`; Yocto proporciona toolchain y sysroot.
+
+## Incorporarla al producto
+
+No modifique `ce1113-p1.bb`. Añada el paquete al grupo de su área:
 
 ```bitbake
-LAYERDEPENDS_ejemplo = "core ce1113"
-LAYERSERIES_COMPAT_ejemplo = "scarthgap"
+# recipes-core/packagegroups/packagegroup-ce1113-auraapp.bb
+RDEPENDS:${PN} = " \
+    aurabot \
+    mi-servicio \
+"
 ```
 
-La instalación en el producto se agrega, sin duplicar la imagen:
+El flujo queda:
 
-```bitbake
-# recipes-core/images/ce1113-p1.bbappend
-IMAGE_INSTALL:append = " mi-servicio"
+```text
+ce1113-p1
+  -> packagegroup-ce1113
+     -> packagegroup-ce1113-auraapp
+        -> mi-servicio
 ```
 
-Para una receta existente, nombre el append como el destino y exponga archivos:
+Una dependencia debe escribirse directamente en `RDEPENDS` de otra receta solo
+cuando sea indispensable para que esa receta funcione. La decisión de incluir
+componentes independientes pertenece a los packagegroups.
+
+## Recetas de configuración
+
+Separe una receta de configuración cuando instale políticas compartidas,
+servicios de plataforma o archivos de `/etc` con ciclo de vida propio. Una
+configuración exclusiva e inseparable de una aplicación puede permanecer en la
+misma receta.
+
+## Modificar recetas externas
+
+Para cambiar Poky o `meta-raspberrypi`, use `.bbappend`, nunca una copia:
 
 ```bitbake
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 SRC_URI += "file://fragment.cfg"
 ```
 
-Use `%` (`busybox_%.bbappend`) solo si el cambio soporta todas las versiones.
-Compruebe cada cambio con:
+El nombre debe corresponder a la receta original:
 
-```bash
+```text
+rpi-cmdline.bb       -> rpi-cmdline.bbappend
+busybox_1.36.1.bb    -> busybox_%.bbappend
+```
+
+## Validación
+
+```sh
 ./scripts/validate-repository.sh
-./build.sh -m qemuarm64 -i ce1113-p1 -l meta-aura-apps,meta-operaciones,meta-server --no-ui
-bitbake-layers show-layers
-bitbake-layers show-appends
-./check_image.sh -m qemuarm64
+./build.sh --no-ui --machine raspberrypi4 --image ce1113-p1
 ```

@@ -2,77 +2,47 @@
 set -euo pipefail
 
 PROJECT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-LAYERS_DIR="$PROJECT_DIR/layers"
-IMAGE_DIR="$PROJECT_DIR/meta-ce1113/recipes-core/images"
-IMAGE_NAME=""
+META_DIR="$PROJECT_DIR/meta-ce1113"
+PACKAGEGROUP_DIR="$META_DIR/recipes-core/packagegroups"
+CATEGORIES=(hw webapp api auraapp)
+CATEGORY=""; RECIPE_NAME=""; VERSION=1.0.0
+
+usage() {
+    cat <<'EOF'
+Uso: ./scripts/create-recipe.sh [--category ÁREA --name NOMBRE] [--version VERSIÓN]
+
+Áreas permitidas: hw, webapp, api, auraapp. Sin argumentos usa el asistente.
+La receta se registra en el packagegroup de su área; la imagen no se modifica.
+EOF
+}
 
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 valid_name() { [[ "$1" =~ ^[a-z0-9][a-z0-9-]*$ ]]; }
 
-detect_image() {
-    local image_file
-    mapfile -t image_recipes < <(find "$IMAGE_DIR" -maxdepth 1 -type f -name '*.bb' -printf '%f\n' | sort)
-    ((${#image_recipes[@]} == 1)) || die "se esperaba exactamente una imagen .bb en $IMAGE_DIR"
-    image_file=${image_recipes[0]}
-    IMAGE_NAME=${image_file%.bb}
-}
+select_category() {
+    local index answer
 
-create_layer() {
-    local layer_name=$1 layer_dir="$LAYERS_DIR/$1"
-    local collection=${layer_name#meta-}
-    collection=${collection//-/}
-    [[ ! -e "$layer_dir" ]] || die "ya existe $layer_dir"
-    mkdir -p "$layer_dir/conf"
-    cat > "$layer_dir/conf/layer.conf" <<EOF
-BBPATH .= ":\${LAYERDIR}"
-BBFILES += "\${LAYERDIR}/recipes-*/*/*.bb \\
-            \${LAYERDIR}/recipes-*/*/*.bbappend"
-
-BBFILE_COLLECTIONS += "$collection"
-BBFILE_PATTERN_$collection = "^\${LAYERDIR}/"
-BBFILE_PRIORITY_$collection = "7"
-LAYERVERSION_$collection = "1"
-LAYERDEPENDS_$collection = "core ce1113"
-LAYERSERIES_COMPAT_$collection = "scarthgap"
-EOF
-    printf 'Layer creado: %s\n' "$layer_dir"
-}
-
-select_layer() {
-    local index answer raw_name
-    mapfile -t available_layers < <(
-        find "$LAYERS_DIR" -mindepth 1 -maxdepth 1 -type d -name 'meta-*' \
-            -exec test -f '{}/conf/layer.conf' \; -printf '%f\n' | sort
-    )
-    echo 'Layers disponibles:' >&2
-    for index in "${!available_layers[@]}"; do
-        printf '  %d) %s\n' "$((index + 1))" "${available_layers[$index]}" >&2
+    echo 'Categorías disponibles:' >&2
+    for index in "${!CATEGORIES[@]}"; do
+        printf '  %d) %s\n' "$((index + 1))" "${CATEGORIES[$index]}" >&2
     done
-    printf '  %d) Crear un layer nuevo\n' "$((${#available_layers[@]} + 1))" >&2
-    read -r -p 'Seleccione una opción: ' answer
+    read -r -p 'Seleccione una categoría: ' answer
     [[ "$answer" =~ ^[0-9]+$ ]] || die 'la selección debe ser un número'
-    ((answer >= 1 && answer <= ${#available_layers[@]} + 1)) || die 'selección fuera de rango'
-    if ((answer <= ${#available_layers[@]})); then
-        selected_layer=${available_layers[$((answer - 1))]}
-        return
-    fi
-    read -r -p 'Nombre del nuevo layer (con o sin prefijo meta-): ' raw_name
-    raw_name=${raw_name#meta-}
-    valid_name "$raw_name" || die 'use minúsculas, números y guiones'
-    selected_layer="meta-$raw_name"
-    create_layer "$selected_layer"
+    ((answer >= 1 && answer <= ${#CATEGORIES[@]})) || die 'selección fuera de rango'
+    CATEGORY=${CATEGORIES[$((answer - 1))]}
 }
 
 create_recipe() {
-    local layer_name=$1 recipe_name=$2
-    local layer_dir="$LAYERS_DIR/$layer_name"
-    local recipe_dir="$layer_dir/recipes-apps/$recipe_name"
-    local recipe_file="$recipe_dir/${recipe_name}_1.0.0.bb"
-    local append_dir="$layer_dir/recipes-core/images"
-    local append_file="$append_dir/$IMAGE_NAME.bbappend"
-    [[ -f "$layer_dir/conf/layer.conf" ]] || die "$layer_name no es un layer válido"
+    local category=$1 recipe_name=$2
+    local recipe_dir="$META_DIR/recipes-$category/$recipe_name"
+    local recipe_file="$recipe_dir/${recipe_name}_${VERSION}.bb"
+    local packagegroup="$PACKAGEGROUP_DIR/packagegroup-ce1113-$category.bb"
+
+    [[ -f "$META_DIR/conf/layer.conf" ]] || die 'meta-ce1113 no es una capa válida'
+    [[ -f "$packagegroup" ]] || die "no existe el packagegroup del área: $packagegroup"
     [[ ! -e "$recipe_dir" ]] || die "ya existe: $recipe_dir"
-    mkdir -p "$recipe_dir/files" "$append_dir"
+
+    mkdir -p "$recipe_dir/files"
     cat > "$recipe_file" <<EOF
 SUMMARY = "Aplicación $recipe_name para CE1113"
 DESCRIPTION = "Receta base; agregue manualmente fuentes, dependencias e instalación"
@@ -87,24 +57,32 @@ S = "\${WORKDIR}"
 # Permite validar la receta antes de añadir contenido instalable.
 ALLOW_EMPTY:\${PN} = "1"
 EOF
-    touch "$recipe_dir/files/.gitkeep"
-    if [[ ! -f "$append_file" ]]; then
-        cat > "$append_file" <<EOF
-# Paquetes que este layer añade a la imagen principal.
-IMAGE_INSTALL:append = " $recipe_name"
-EOF
-    elif ! grep -Eq "(^|[[:space:]\"])${recipe_name}([[:space:]\"]|$)" "$append_file"; then
-        printf '\nIMAGE_INSTALL:append = " %s"\n' "$recipe_name" >> "$append_file"
+    : > "$recipe_dir/files/.gitkeep"
+
+    if ! grep -Eq "(^|[[:space:]\"])${recipe_name}([[:space:]\"]|$)" "$packagegroup"; then
+        printf '\n# Añadido por create-recipe.sh\nRDEPENDS:${PN}:append = " %s"\n' \
+            "$recipe_name" >> "$packagegroup"
     fi
-    printf '\nReceta: %s\nArchivos manuales: %s\nBBappend: %s\n' \
-        "$recipe_file" "$recipe_dir/files" "$append_file"
+
+    printf '\nReceta: %s\nArchivos manuales: %s\nPackagegroup: %s\n' \
+        "$recipe_file" "$recipe_dir/files" "$packagegroup"
 }
 
-[[ -d "$LAYERS_DIR" ]] || die "no existe $LAYERS_DIR"
-detect_image
-printf 'Imagen principal detectada: %s\n' "$IMAGE_NAME"
-select_layer
-read -r -p 'Nombre de la receta: ' recipe_name
-valid_name "$recipe_name" || die 'use minúsculas, números y guiones'
-create_recipe "$selected_layer" "$recipe_name"
-echo 'Complete los archivos específicos y compruebe el resultado con bitbake-layers show-appends.'
+[[ -d "$META_DIR" ]] || die "no existe $META_DIR"
+while (($#)); do
+    case "$1" in
+        --category) CATEGORY=${2:?falta la categoría}; shift 2 ;;
+        --name) RECIPE_NAME=${2:?falta el nombre}; shift 2 ;;
+        --version) VERSION=${2:?falta la versión}; shift 2 ;;
+        -h|--help) usage; exit 0 ;;
+        *) die "opción desconocida: $1" ;;
+    esac
+done
+
+if [[ -z "$CATEGORY" ]]; then select_category; fi
+[[ " ${CATEGORIES[*]} " == *" $CATEGORY "* ]] || die "categoría no permitida: $CATEGORY"
+if [[ -z "$RECIPE_NAME" ]]; then read -r -p 'Nombre de la receta: ' RECIPE_NAME; fi
+valid_name "$RECIPE_NAME" || die 'use minúsculas, números y guiones'
+[[ "$VERSION" =~ ^[0-9]+([.][0-9]+)*$ ]] || die 'la versión debe ser numérica (por ejemplo, 1.0.0)'
+create_recipe "$CATEGORY" "$RECIPE_NAME"
+echo 'Complete los archivos específicos y ejecute ./scripts/validate-repository.sh.'

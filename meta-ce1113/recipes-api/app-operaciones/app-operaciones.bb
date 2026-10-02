@@ -6,6 +6,6 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/meta/COPYING.MIT;md5=3da9cfbcb788c80a0384
 do_install() {
     install -d ${D}${bindir}
     echo "#!/bin/sh" > ${D}${bindir}/mi_operacion
-    echo "echo 'Operaciones funcionando'" >> ${D}${bindir}/mi_operacion
+    echo "echo 'Operaciones funcionando en Nueva Estructura unico layer META-CE1113'" >> ${D}${bindir}/mi_operacion
     chmod 0755 ${D}${bindir}/mi_operacion
 }

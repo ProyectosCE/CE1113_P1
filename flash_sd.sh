@@ -3,128 +3,125 @@ set -euo pipefail
 
 PROJECT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 POKY_DIR=${POKY_DIR:-"$HOME/poky-scarthgap-5.0.19"}
+BUILD_DIR=""; TARGET_DEVICE=""; ASSUME_YES=0
+# shellcheck source=scripts/lib/image-common.sh
+source "$PROJECT_DIR/scripts/lib/image-common.sh"
 
-for tool in whiptail lsblk findmnt wipefs dd sync; do
-    command -v "$tool" >/dev/null || { echo "Error: falta la herramienta $tool." >&2; exit 1; }
+usage() {
+    cat <<'EOF'
+Uso: ./flash_sd.sh [--build-dir DIR] [--device /dev/sdX] [--yes]
+
+Verifica ce1113-p1 y graba su WIC en una SD removible. Sin --device usa GUI.
+--yes omite la confirmación, pero nunca las comprobaciones de seguridad.
+EOF
+}
+
+while (($#)); do
+    case "$1" in
+        -b|--build-dir) BUILD_DIR=${2:?falta el directorio}; shift 2 ;;
+        -d|--device) TARGET_DEVICE=${2:?falta el dispositivo}; shift 2 ;;
+        -y|--yes) ASSUME_YES=1; shift ;;
+        -h|--help) usage; exit 0 ;;
+        *) printf 'Opción desconocida: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+    esac
 done
 
-MAIN_IMAGE=$(find "$PROJECT_DIR/meta-ce1113/recipes-core/images" -maxdepth 1 -type f -name '*.bb' -printf '%f\n' | sort | head -n1)
-[[ -n "$MAIN_IMAGE" ]] || { echo "Error: no se encontró la imagen de meta-ce1113." >&2; exit 1; }
-MAIN_IMAGE=${MAIN_IMAGE%.bb}
-
-MACHINE=$(whiptail --title "Grabar tarjeta SD" --menu \
-    "Seleccione el target:" 15 70 2 \
-    raspberrypi4 "Raspberry Pi 4 (grabable en SD)" \
-    qemuarm64 "QEMU ARM64 (no grabable en SD)" 3>&1 1>&2 2>&3) || exit 0
-if [[ "$MACHINE" != raspberrypi4 ]]; then
-    whiptail --title "Target no grabable" --msgbox \
-        "Las imágenes QEMU no se graban en una tarjeta SD. Seleccione raspberrypi4." 10 72
-    exit 1
-fi
-
-IMAGE=$(whiptail --title "Grabar tarjeta SD" --menu \
-    "Seleccione la imagen:" 16 75 3 \
-    "$MAIN_IMAGE" "Imagen principal CE1113" \
-    core-image-minimal "Imagen mínima de Poky" \
-    rpi-test-image "Imagen de pruebas de Raspberry Pi" 3>&1 1>&2 2>&3) || exit 0
-
-BUILD_DIR="$POKY_DIR/build-$MACHINE"
-DEPLOY_DIR="$BUILD_DIR/tmp/deploy/images/$MACHINE"
-LATEST_MANIFEST=$(find -L "$DEPLOY_DIR" -maxdepth 1 -type f -name "${IMAGE}-${MACHINE}*.manifest" \
-    -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-)
-if [[ -z "$LATEST_MANIFEST" ]]; then
-    whiptail --title "Imagen no encontrada" --msgbox \
-        "No existe una compilación de $IMAGE para $MACHINE en:\n$DEPLOY_DIR" 12 76
-    exit 1
-fi
-
-IMAGE_BASE=${LATEST_MANIFEST%.manifest}
-IMAGE_FILE=""; IMAGE_TYPE=""
-for extension in wic.bz2 wic.gz wic.xz wic; do
-    if [[ -f "$IMAGE_BASE.$extension" ]]; then
-        IMAGE_FILE="$IMAGE_BASE.$extension"; IMAGE_TYPE=$extension; break
-    fi
+for tool in lsblk findmnt wipefs dd sync sha256sum; do
+    command -v "$tool" >/dev/null || { echo "Error: falta $tool." >&2; exit 1; }
 done
-if [[ -z "$IMAGE_FILE" ]]; then
-    whiptail --title "Imagen de disco ausente" --msgbox \
-        "Existe el manifest, pero falta un artefacto .wic comprimido o sin comprimir:\n$IMAGE_BASE" 12 78
-    exit 1
-fi
 
-# Verificar que el archivo puede leerse/descomprimirse antes de tocar la tarjeta.
-case "$IMAGE_TYPE" in
-    wic.bz2) command -v bzip2 >/dev/null || { whiptail --msgbox "Falta bzip2." 8 40; exit 1; }; bzip2 -t "$IMAGE_FILE" ;;
-    wic.gz) command -v gzip >/dev/null || { whiptail --msgbox "Falta gzip." 8 40; exit 1; }; gzip -t "$IMAGE_FILE" ;;
-    wic.xz) command -v xz >/dev/null || { whiptail --msgbox "Falta xz." 8 40; exit 1; }; xz -t "$IMAGE_FILE" ;;
-    wic) dd if="$IMAGE_FILE" of=/dev/null bs=1M count=1 status=none ;;
-esac
+BUILD_DIR=${BUILD_DIR:-"$POKY_DIR/build-$CE1113_MACHINE"}
+# La misma validación que sigue al build debe pasar inmediatamente antes del borrado.
+"$PROJECT_DIR/check_image.sh" --no-ui --build-dir "$BUILD_DIR"
+
+DEPLOY_DIR=$(ce1113_deploy_dir "$BUILD_DIR")
+MANIFEST=$(ce1113_latest_manifest "$DEPLOY_DIR")
+IMAGE_FILE=$(ce1113_image_for_manifest "$MANIFEST")
+EXPECTED_HASH=$(sha256sum "$IMAGE_FILE" | awk '{print $1}')
 
 ROOT_SOURCE=$(findmnt -n -o SOURCE / 2>/dev/null || true)
 ROOT_PARENT=""
 if [[ -n "$ROOT_SOURCE" ]]; then
     ROOT_PARENT=$(lsblk -ndo PKNAME "$ROOT_SOURCE" 2>/dev/null | head -n1 || true)
     [[ -n "$ROOT_PARENT" ]] && ROOT_PARENT="/dev/$ROOT_PARENT"
-    [[ -z "$ROOT_PARENT" && -b "$ROOT_SOURCE" ]] && ROOT_PARENT="$ROOT_SOURCE"
+    [[ -z "$ROOT_PARENT" && -b "$ROOT_SOURCE" ]] && ROOT_PARENT=$ROOT_SOURCE
 fi
 
-DEVICE_OPTIONS=()
-while IFS= read -r name; do
-    [[ -b "$name" ]] || continue
-    type=$(lsblk -dn -o TYPE "$name")
-    removable=$(lsblk -dn -o RM "$name")
-    transport=$(lsblk -dn -o TRAN "$name")
-    size=$(lsblk -dn -o SIZE "$name")
-    model=$(lsblk -dn -o MODEL "$name" | sed 's/[[:space:]]*$//')
-    [[ "$type" == disk ]] || continue
-    [[ "$name" != "$ROOT_PARENT" ]] || continue
-    if [[ "$removable" == 1 || "$transport" == usb || "$transport" == mmc ]]; then
-        DEVICE_OPTIONS+=("$name" "$size ${model:-sin-modelo} [${transport:-removible}]")
+is_safe_removable_disk() {
+    local device=$1 type removable transport
+    [[ -b "$device" ]] || return 1
+    type=$(lsblk -dn -o TYPE "$device")
+    removable=$(lsblk -dn -o RM "$device")
+    transport=$(lsblk -dn -o TRAN "$device")
+    [[ "$type" == disk && "$device" != "$ROOT_PARENT" ]] || return 1
+    [[ "$removable" == 1 || "$transport" == usb || "$transport" == mmc ]]
+}
+
+if [[ -z "$TARGET_DEVICE" ]]; then
+    command -v whiptail >/dev/null || {
+        echo 'Error: sin --device se requiere whiptail.' >&2; exit 1;
+    }
+    DEVICE_OPTIONS=()
+    while IFS= read -r device; do
+        if is_safe_removable_disk "$device"; then
+            description=$(lsblk -dn -o SIZE,MODEL,TRAN "$device" | sed 's/[[:space:]]*$//')
+            DEVICE_OPTIONS+=("$device" "$description")
+        fi
+    done < <(lsblk -dnpo NAME)
+    ((${#DEVICE_OPTIONS[@]} > 0)) || {
+        whiptail --title 'SD no detectada' --msgbox \
+            'No se detectó una SD, unidad USB o dispositivo MMC removible.' 10 72
+        exit 1
+    }
+    TARGET_DEVICE=$(whiptail --title 'Grabar CE1113 en SD' --menu \
+        'Seleccione el disco completo que será borrado:' 18 84 8 \
+        "${DEVICE_OPTIONS[@]}" 3>&1 1>&2 2>&3) || exit 0
+fi
+
+is_safe_removable_disk "$TARGET_DEVICE" || {
+    echo "Error: $TARGET_DEVICE no es un disco removible seguro o contiene /." >&2; exit 1;
+}
+DEVICE_INFO=$(lsblk -dn -o NAME,SIZE,MODEL,TRAN,RM "$TARGET_DEVICE")
+
+if ((ASSUME_YES == 0)); then
+    message="Dispositivo: $DEVICE_INFO
+Imagen: $(basename "$IMAGE_FILE")
+SHA-256: $EXPECTED_HASH
+
+TODOS LOS DATOS DE $TARGET_DEVICE SERÁN BORRADOS."
+    if [[ -t 0 ]] && command -v whiptail >/dev/null; then
+        whiptail --title 'BORRADO TOTAL DE LA SD' --yesno "$message" 17 88 || exit 0
+    else
+        printf '%s\nEscriba exactamente BORRAR para continuar: ' "$message" >&2
+        read -r confirmation
+        [[ "$confirmation" == BORRAR ]] || exit 0
     fi
-done < <(lsblk -dnpo NAME)
-
-if ((${#DEVICE_OPTIONS[@]} == 0)); then
-    whiptail --title "SD no detectada" --msgbox \
-        "No se detectó ningún disco removible, USB o MMC.\n\nConecte la SD, espere unos segundos y vuelva a ejecutar el script.\nPuede comprobarla con: lsblk" 13 76
-    exit 1
 fi
-
-TARGET_DEVICE=$(whiptail --title "Seleccionar tarjeta SD" --menu \
-    "Seleccione cuidadosamente el dispositivo que se borrará:" 18 82 8 \
-    "${DEVICE_OPTIONS[@]}" 3>&1 1>&2 2>&3) || exit 0
-
-[[ -b "$TARGET_DEVICE" ]] || { whiptail --msgbox "$TARGET_DEVICE ya no está conectado." 9 60; exit 1; }
-[[ "$(lsblk -dn -o TYPE "$TARGET_DEVICE")" == disk ]] || { whiptail --msgbox "El destino no es un disco completo." 9 60; exit 1; }
-[[ "$TARGET_DEVICE" != "$ROOT_PARENT" ]] || { whiptail --msgbox "Se bloqueó el intento de borrar el disco del sistema." 9 68; exit 1; }
-
-DEVICE_INFO=$(lsblk -dn -o NAME,SIZE,MODEL,TRAN "$TARGET_DEVICE")
-STALE=""
-if find "$PROJECT_DIR/meta-ce1113" "$PROJECT_DIR/layers" -type f \( -name '*.bb' -o -name '*.bbappend' \) \
-    -newer "$LATEST_MANIFEST" -print -quit | grep -q .; then
-    STALE="\n\nADVERTENCIA: hay recetas más nuevas que esta imagen."
-fi
-
-whiptail --title "BORRADO TOTAL DE LA SD" --yesno \
-    "Dispositivo: $DEVICE_INFO\nImagen: $(basename "$IMAGE_FILE")$STALE\n\nTODOS LOS DATOS DE $TARGET_DEVICE SERÁN BORRADOS.\n\n¿Desea continuar?" 18 82 || exit 0
 
 sudo -v
-[[ -b "$TARGET_DEVICE" ]] || { whiptail --msgbox "La SD fue desconectada." 9 55; exit 1; }
-
+is_safe_removable_disk "$TARGET_DEVICE" || {
+    echo 'Error: el dispositivo cambió o fue desconectado.' >&2; exit 1;
+}
 mapfile -t PARTITIONS < <(lsblk -lnpo PATH "$TARGET_DEVICE" | tail -n +2)
 for partition in "${PARTITIONS[@]}"; do sudo umount "$partition" 2>/dev/null || true; done
 sudo umount "$TARGET_DEVICE" 2>/dev/null || true
-
 sudo wipefs -a "$TARGET_DEVICE"
 sudo dd if=/dev/zero of="$TARGET_DEVICE" bs=1M count=10 status=none conv=fsync
 
-clear
 echo "Grabando $(basename "$IMAGE_FILE") en $TARGET_DEVICE..."
-case "$IMAGE_TYPE" in
-    wic.bz2) bzip2 -dc "$IMAGE_FILE" | sudo dd of="$TARGET_DEVICE" bs=4M status=progress conv=fsync ;;
-    wic.gz) gzip -dc "$IMAGE_FILE" | sudo dd of="$TARGET_DEVICE" bs=4M status=progress conv=fsync ;;
-    wic.xz) xz -dc "$IMAGE_FILE" | sudo dd of="$TARGET_DEVICE" bs=4M status=progress conv=fsync ;;
-    wic) sudo dd if="$IMAGE_FILE" of="$TARGET_DEVICE" bs=4M status=progress conv=fsync ;;
+case "$IMAGE_FILE" in
+    *.wic.bz2) bzip2 -dc "$IMAGE_FILE" | sudo dd of="$TARGET_DEVICE" bs=4M status=progress conv=fsync ;;
+    *.wic.gz)  gzip -dc "$IMAGE_FILE" | sudo dd of="$TARGET_DEVICE" bs=4M status=progress conv=fsync ;;
+    *.wic.xz)  xz -dc "$IMAGE_FILE" | sudo dd of="$TARGET_DEVICE" bs=4M status=progress conv=fsync ;;
+    *.wic)     sudo dd if="$IMAGE_FILE" of="$TARGET_DEVICE" bs=4M status=progress conv=fsync ;;
 esac
 sudo sync
 
-whiptail --title "Grabación completada" --msgbox \
-    "La imagen se grabó correctamente en $TARGET_DEVICE.\n\nPuede retirar la tarjeta SD de forma segura." 11 70
+message="Grabación completada en $TARGET_DEVICE.
+Origen verificado: $EXPECTED_HASH
+Puede retirar la tarjeta de forma segura."
+if [[ -t 0 ]] && command -v whiptail >/dev/null; then
+    whiptail --title 'Grabación completada' --msgbox "$message" 11 80
+else
+    printf '%s\n' "$message"
+fi
