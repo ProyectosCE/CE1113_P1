@@ -16,8 +16,19 @@ jobs:
     steps:
       - name: Obtener repositorio
         uses: actions/checkout@v6
+      - name: Verificar append de rpi-cmdline sin versión
+        shell: bash
+        run: |
+          set -euo pipefail
+          append_dir="layers/meta-aura-apps/recipes-bsp/bootfiles"
+          test -f "$append_dir/rpi-cmdline.bbappend"
+          test ! -e "$append_dir/rpi-cmdline_%.bbappend"
       - name: Validar estructura, nombres, capas y recetas
-        run: ./scripts/validate-repository.sh
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n ./scripts/validate-repository.sh
+          ./scripts/validate-repository.sh
 
   native-cmake-build:
     name: Compilar fuentes de la receta AuraBot

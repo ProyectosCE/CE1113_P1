@@ -56,7 +56,19 @@ done < <(find layers -type f -path '*/recipes-core/images/*.bbappend' | sort)
 
 while IFS= read -r append; do
     [[ "$append" == */recipes-core/images/ce1113-p1.bbappend ]] && continue
-    [[ $(basename "$append") == *_%.bbappend ]] || fail "un bbappend externo debe declarar versión o comodín explícito: $append"
+    append_name=$(basename "$append")
+    case "$append_name" in
+        # La receta de meta-raspberrypi se llama rpi-cmdline.bb y no tiene
+        # sufijo de versión. El append correcto también debe ir sin sufijo;
+        # rpi-cmdline_%.bbappend no coincide y BitBake lo considera huérfano.
+        rpi-cmdline.bbappend)
+            ;;
+        *_%.bbappend)
+            ;;
+        *)
+            fail "un bbappend externo debe declarar versión o comodín explícito: $append"
+            ;;
+    esac
     if grep -q 'file://' "$append"; then
         grep -q '^FILESEXTRAPATHS:prepend' "$append" || fail "$append usa file:// sin FILESEXTRAPATHS:prepend"
     fi
