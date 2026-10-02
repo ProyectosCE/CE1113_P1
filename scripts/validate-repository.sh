@@ -83,10 +83,14 @@ done < <(find meta-ce1113 layers -type f -path '*/recipes-core/images/*.bbappend
 while IFS= read -r append; do
     [[ "$append" == */recipes-core/images/ce1113-p1.bbappend ]] && continue
     append_name=$(basename "$append")
-    # Un bbappend debe conservar exactamente la forma del nombre externo:
-    # foo.bb -> foo.bbappend; foo_1.2.bb -> foo_1.2.bbappend; cualquier
-    # versión de foo -> foo_%.bbappend. Por eso el sufijo _% no es obligatorio:
-    # rpi-cmdline.bb y rpi-config_git.bb son recetas externas sin versión.
+    # BitBake admite las tres formas siguientes, según el nombre externo:
+    #   foo.bb             -> foo.bbappend
+    #   foo_1.2.bb         -> foo_1.2.bbappend (versión exacta)
+    #   foo_<versión>.bb   -> foo_%.bbappend (comodín)
+    # El sufijo _% no es obligatorio: rpi-cmdline.bb y rpi-config_git.bb son
+    # recetas externas sin versión. Sin las capas externas no puede deducirse
+    # cuál forma corresponde; BitBake detectará después un bbappend huérfano.
+    # Aquí solo se rechaza '%' si no es el comodín de versión final "_%".
     if [[ "$append_name" == *%* && "$append_name" != *_%.bbappend ]]; then
         fail "comodín bbappend no permitido; use nombre_%.bbappend: $append"
     fi

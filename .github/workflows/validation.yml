@@ -20,6 +20,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          bash -n ./scripts/validate-repository.sh
           ./scripts/check-repository.sh
       - name: Validar interfaces no interactivas
         shell: bash
