@@ -9,18 +9,18 @@ Modo interactivo:
 Modo automatizable:
 
 ```bash
-./scripts/create-recipe.sh --category api --name telemetria --version 1.0.0
+./scripts/create-recipe.sh --category test --name telemetria --version 1.0.0
 ```
 
-Las categorías permitidas son `hw`, `webapp`, `api` y `auraapp`. Para
+Las categorías permitidas son `lib`, `test`, `hw` y `auraapp`. Para
 `telemetria`, el script crea:
 
 ```text
 meta-ce1113/
-├── recipes-api/telemetria/
+├── recipes-test/telemetria/
 │   ├── files/.gitkeep
 │   └── telemetria_1.0.0.bb
-└── recipes-core/packagegroups/packagegroup-ce1113-api.bb
+└── recipes-core/packagegroups/packagegroup-ce1113-test.bb
 ```
 
 La receta inicial usa `ALLOW_EMPTY`, de modo que puede validarse antes de añadir

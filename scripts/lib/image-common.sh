@@ -46,10 +46,16 @@ ce1113_manifest_has_prefix() {
 
 ce1113_required_packages() {
     printf '%s\n' \
-        packagegroup-ce1113 packagegroup-ce1113-hw packagegroup-ce1113-webapp \
-        packagegroup-ce1113-api packagegroup-ce1113-auraapp \
-        aurabot hola app-operaciones webapp audio-mp3 ce1113-audio-config \
-        alsa-utils alsa-utils-aplay alsa-utils-alsamixer mpg123 wifi-config
+        packagegroup-ce1113 packagegroup-ce1113-lib packagegroup-ce1113-test \
+        packagegroup-ce1113-hw packagegroup-ce1113-auraapp \
+        libgpio1 libpwm1 libaudio1 libleds1 libsensors1 aurabot aurabot-audio-server \
+        app-operaciones webapp audio-storage ce1113-audio-config \
+        packagegroup-base-alsa alsa-utils-amixer mpg123 wifi-config
+}
+
+ce1113_forbidden_packages() {
+    # Componentes heredados que contradicen la separación actual de recetas.
+    printf '%s\n' ssh-access dropbear
 }
 
 ce1113_metadata_digest() {

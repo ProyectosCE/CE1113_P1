@@ -5,5 +5,6 @@ inherit packagegroup
 
 RDEPENDS:${PN} = " \
     aurabot \
-    hola \
+    aurabot-audio-server \
+    webapp \
 "

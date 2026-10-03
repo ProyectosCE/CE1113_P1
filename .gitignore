@@ -48,3 +48,9 @@ sdk-*/
 # OS
 .DS_Store
 Thumbs.db
+
+# Música local: se copia a AURA_AUDIO con load_audio.sh, nunca al WIC ni a Git
+media/*
+!media/README.md
+audios/*
+!audios/README.md

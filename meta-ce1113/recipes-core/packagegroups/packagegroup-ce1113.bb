@@ -4,8 +4,8 @@ LICENSE = "MIT"
 inherit packagegroup
 
 RDEPENDS:${PN} = " \
+    packagegroup-ce1113-lib \
     packagegroup-ce1113-hw \
-    packagegroup-ce1113-webapp \
-    packagegroup-ce1113-api \
     packagegroup-ce1113-auraapp \
+    packagegroup-ce1113-test \
 "

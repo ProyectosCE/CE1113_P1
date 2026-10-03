@@ -4,7 +4,8 @@ LICENSE = "MIT"
 inherit packagegroup
 
 RDEPENDS:${PN} = " \
-    audio-mp3 \
+    audio-storage \
+    ce1113-audio-config \
     packagegroup-machine-base \
     packagegroup-base-alsa \
     wifi-config \

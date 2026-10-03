@@ -4,10 +4,10 @@ Toda la metadata activa vive en `meta-ce1113`. Las recetas se organizan en
 cuatro categorías:
 
 ```text
-recipes-hw       hardware, audio, red y configuración de plataforma
-recipes-webapp   servidor HTTP, CGI y frontend
-recipes-api      bibliotecas u operaciones compartidas
-recipes-auraapp  aplicaciones y servicios de AuraBot
+recipes-lib      bibliotecas dinámicas reutilizables
+recipes-test     aplicaciones y utilidades de prueba
+recipes-hw       activación y configuración física de la Raspberry Pi
+recipes-auraapp  aplicación, servidor de audio, CGI y frontend
 ```
 
 `recipes-core` queda reservado para la imagen y los packagegroups.
