@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.16)
+project(aurabot_audio_server VERSION 1.0.0 LANGUAGES C)
+find_path(AUDIO_INCLUDE_DIR libaudio.h REQUIRED)
+find_library(AUDIO_LIBRARY audio REQUIRED)
+add_executable(aurabot-audio-server aurabot-audio-server.c)
+target_include_directories(aurabot-audio-server PRIVATE ${AUDIO_INCLUDE_DIR})
+target_link_libraries(aurabot-audio-server PRIVATE ${AUDIO_LIBRARY})
+install(TARGETS aurabot-audio-server DESTINATION bin)

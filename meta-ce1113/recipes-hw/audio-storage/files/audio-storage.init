@@ -1,0 +1,32 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          audio-storage
+# Required-Start:    $local_fs
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Monta la partición persistente de música AuraBot
+### END INIT INFO
+
+MOUNT_POINT=/media/audio
+
+case "${1:-}" in
+    start)
+        mkdir -p "$MOUNT_POINT"
+        grep -qs " $MOUNT_POINT " /proc/mounts || mount -t ext4 -o defaults LABEL=AURA_AUDIO "$MOUNT_POINT"
+        ;;
+    stop)
+        grep -qs " $MOUNT_POINT " /proc/mounts && umount "$MOUNT_POINT"
+        ;;
+    restart)
+        "$0" stop
+        "$0" start
+        ;;
+    status)
+        grep -qs " $MOUNT_POINT " /proc/mounts
+        ;;
+    *)
+        echo "Uso: $0 {start|stop|restart|status}"
+        exit 2
+        ;;
+esac

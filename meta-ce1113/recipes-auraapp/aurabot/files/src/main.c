@@ -1,9 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <aurabot_hw.h>
-#include <libgpio.h>
-
+#include <libpwm.h>
 
 int main(){
 
@@ -11,11 +9,16 @@ int main(){
     int freq = 2; // Frequency in Hz
     int duty = 50; // Duty cycle in percentage
 
-    setPWM(pin, freq, duty);  // Motor 1: 100 Hz, 50 %
+    if (setPWM(pin, freq, duty) != 0) {
+        perror("aurabot: no se pudo iniciar PWM en GPIO17");
+        return EXIT_FAILURE;
+    }
+
+    printf("AuraBot: PWM activo en GPIO%d (%d Hz, %d%%).\n",
+           pin, freq, duty);
+    fflush(stdout);
 
     while(1){
         sleep(1);
     }
-
-
 }

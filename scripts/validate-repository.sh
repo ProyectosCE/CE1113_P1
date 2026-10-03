@@ -11,6 +11,7 @@ required_files=(
     build.sh
     check_image.sh
     flash_sd.sh
+    load_audio.sh
     scripts/check-repository.sh
     scripts/create-recipe.sh
     scripts/lib/image-common.sh
@@ -18,8 +19,8 @@ required_files=(
     meta-ce1113/recipes-core/images/ce1113-p1.bb
     meta-ce1113/recipes-core/packagegroups/packagegroup-ce1113.bb
     meta-ce1113/recipes-core/packagegroups/packagegroup-ce1113-hw.bb
-    meta-ce1113/recipes-core/packagegroups/packagegroup-ce1113-webapp.bb
-    meta-ce1113/recipes-core/packagegroups/packagegroup-ce1113-api.bb
+    meta-ce1113/recipes-core/packagegroups/packagegroup-ce1113-lib.bb
+    meta-ce1113/recipes-core/packagegroups/packagegroup-ce1113-test.bb
     meta-ce1113/recipes-core/packagegroups/packagegroup-ce1113-auraapp.bb
     meta-ce1113/recipes-auraapp/aurabot/aurabot_1.0.0.bb
 )
@@ -50,7 +51,7 @@ for layer in "${layers_found[@]}"; do
     grep -Eq "^LAYERSERIES_COMPAT_${collection}.*scarthgap" "$layer_conf" || fail "$layer_conf no declara compatibilidad con scarthgap"
 done
 
-for category in hw webapp api auraapp; do
+for category in lib test hw auraapp; do
     required_doc="docs/development/repository-structure.md"
     grep -q "recipes-$category" "$required_doc" || fail "$required_doc no documenta recipes-$category"
 done
@@ -65,7 +66,7 @@ mapfile -t primary_images < <(find meta-ce1113/recipes-core/images -maxdepth 1 -
 (( ${#primary_images[@]} == 1 )) || fail "meta-ce1113 debe contener exactamente una receta de imagen principal"
 [[ "${primary_images[0]:-}" == ce1113-p1.bb ]] || fail "la imagen principal debe llamarse ce1113-p1.bb"
 
-for category in recipes-hw recipes-webapp recipes-api recipes-auraapp; do
+for category in recipes-lib recipes-test recipes-hw recipes-auraapp; do
     [[ -d "meta-ce1113/$category" ]] || fail "falta la categoría funcional meta-ce1113/$category"
 done
 
@@ -73,7 +74,7 @@ while IFS= read -r recipe; do
     name=$(basename "$recipe")
     [[ "$name" =~ ^[a-z0-9][a-z0-9+._%-]*\.(bb|bbappend)$ ]] || fail "nombre de receta no permitido: $recipe"
     [[ "$recipe" =~ /recipes-[a-z0-9+.-]+/[^/]+/[^/]+$ ]] || fail "receta fuera de recipes-<categoria>/<nombre>: $recipe"
-    [[ "$recipe" =~ ^meta-ce1113/recipes-(core|hw|webapp|api|auraapp)/ ]] || fail "categoría de receta no permitida: $recipe"
+    [[ "$recipe" =~ ^meta-ce1113/recipes-(core|lib|test|hw|auraapp)/ ]] || fail "categoría de receta no permitida: $recipe"
 done < <(find meta-ce1113 -type f \( -name '*.bb' -o -name '*.bbappend' \) | sort)
 
 while IFS= read -r append; do
@@ -100,11 +101,17 @@ while IFS= read -r append; do
 done < <(find meta-ce1113 -type f -name '*.bbappend' | sort)
 
 while IFS= read -r source; do
-    [[ "$source" =~ ^meta-ce1113/recipes-(hw|webapp|api|auraapp)/[^/]+/files/ ]] || fail "código fuera de files/ de una receta: $source"
+    [[ "$source" =~ ^meta-ce1113/recipes-(lib|test|hw|auraapp)/[^/]+/files/ ]] || fail "código fuera de files/ de una receta: $source"
 done < <(git ls-files --cached --others --exclude-standard '*.c' '*.h' 'CMakeLists.txt' | while read -r item; do [[ -e "$item" ]] && echo "$item"; done)
 
+# La música vive únicamente en la partición persistente AURA_AUDIO. Incluirla
+# en una receta aumentaría el WIC y obligaría a recompilar para cambiar canciones.
+while IFS= read -r media_file; do
+    fail "archivo de audio dentro de metadata Yocto; use load_audio.sh: $media_file"
+done < <(find meta-ce1113 -type f \( -iname '*.mp3' -o -iname '*.wav' -o -iname '*.flac' -o -iname '*.ogg' \) | sort)
+
 grep -q 'packagegroup-ce1113' meta-ce1113/recipes-core/images/ce1113-p1.bb || fail "ce1113-p1 debe instalar únicamente el packagegroup raíz"
-for group in hw webapp api auraapp; do
+for group in lib test hw auraapp; do
     grep -q "packagegroup-ce1113-$group" meta-ce1113/recipes-core/packagegroups/packagegroup-ce1113.bb || fail "el packagegroup raíz no incluye el área $group"
 done
 
@@ -112,7 +119,7 @@ if grep -Eq '^(IMAGE_INSTALL|RPI_EXTRA_CONFIG|KERNEL_MODULE_AUTOLOAD|PACKAGECONF
     fail "layer.conf debe contener solo metadata de la capa, no configuración funcional"
 fi
 
-for script in build.sh check_image.sh flash_sd.sh scripts/*.sh; do
+for script in build.sh check_image.sh flash_sd.sh load_audio.sh scripts/*.sh; do
     bash -n "$script" || fail "sintaxis shell inválida: $script"
 done
 bash -n scripts/lib/image-common.sh || fail 'sintaxis shell inválida: scripts/lib/image-common.sh'

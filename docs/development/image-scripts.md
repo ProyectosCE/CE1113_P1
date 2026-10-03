@@ -27,6 +27,8 @@ La huella no utiliza fechas de modificación. Esto evita marcar como obsoleta
 una imagen después de `git checkout`, `stash`, `clone` o una restauración que
 cambie los tiempos de archivo sin cambiar su contenido. `build.sh` escribe la
 huella junto al manifest después de que BitBake termina correctamente.
+Si la huella falta, la comprobación falla: una ejecución directa de `bitbake`
+no se considera suficiente para autorizar el flasheo; use `build.sh`.
 
 Para guardar evidencia:
 
@@ -47,7 +49,26 @@ La GUI selecciona solamente el dispositivo. Antes de escribir, el script:
 3. confirma que el destino sigue conectado y es removible;
 4. solicita confirmación explícita y credenciales `sudo`;
 5. desmonta las particiones;
-6. elimina firmas y los primeros 10 MiB anteriores;
-7. escribe la imagen completa y sincroniza los datos.
+6. comprueba que el WIC no alcance los últimos 2 GiB;
+7. escribe la imagen del sistema sin limpiar los bloques finales;
+8. relee los bytes escritos y compara su SHA-256 con el WIC descomprimido;
+9. comprueba que reaparezcan las particiones 1 y 2 del WIC;
+10. restaura o crea como partición 3 el ext4 `AURA_AUDIO` al final de la SD;
+11. verifica que las geometrías de arranque y rootfs no hayan cambiado y que
+    sus firmas sigan siendo FAT y ext4.
 
-La operación destruye la tarjeta seleccionada. Confirme siempre modelo y tamaño.
+En el primer flash se crea y formatea `AURA_AUDIO`. En flashes posteriores se
+guarda su inicio/tamaño antes de escribir el WIC y se restaura la misma entrada
+en la tabla sin formatear, por lo que las canciones permanecen intactas. La
+imagen monta la partición por etiqueta en `/media/audio` mediante SysVinit. El script se detiene
+si la imagen crece hasta solapar la partición o si la geometría no es segura.
+La partición raíz conserva exactamente el tamaño definido y probado dentro del
+WIC. El espacio intermedio queda sin asignar deliberadamente: no se redimensiona
+un rootfs en vivo durante el flasheo y los últimos 2 GiB permanecen reservados
+para música.
+
+Las particiones de arranque y rootfs se reemplazan. La partición musical solo se
+preserva si es la partición 3, ext4 y tiene la etiqueta exacta `AURA_AUDIO`.
+
+Las canciones nunca forman parte del WIC. Después de flashear se cargan sin
+recompilar mediante `./load_audio.sh --source ./media`.

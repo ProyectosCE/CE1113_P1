@@ -42,6 +42,21 @@ removible, USB o MMC que no sea el disco raíz.
 La operación destruye todos los datos. `--yes` omite la confirmación, pero no
 las comprobaciones de integridad, tipo de dispositivo o protección del disco raíz.
 
+## `load_audio.sh`
+
+Copia MP3 directamente a la partición persistente `AURA_AUDIO`; no modifica la
+imagen ni ejecuta BitBake. Busca por defecto `./media` y después `./audios`:
+
+```bash
+./load_audio.sh
+./load_audio.sh --source /ruta/a/mis-audios
+./load_audio.sh --source ./audios --partition /dev/mmcblk0p3 --no-ui
+```
+
+Conserva las canciones existentes, reemplaza únicamente nombres coincidentes y
+regenera `/media/audio/playlist.txt`. Verifica etiqueta, ext4, espacio disponible,
+disco removible y que el destino no pertenezca al sistema host.
+
 ## `scripts/check-repository.sh`
 
 Es la entrada estable para desarrollo y CI. Comprueba estructura, categorías,
@@ -54,11 +69,11 @@ Funciona como asistente o sin interacción:
 
 ```bash
 ./scripts/create-recipe.sh
-./scripts/create-recipe.sh --category webapp --name mi-panel --version 1.0.0
+./scripts/create-recipe.sh --category auraapp --name mi-panel --version 1.0.0
 ```
 
 Flujo recomendado:
 
 ```text
-check-repository.sh → build.sh → comprobación automática → flash_sd.sh
+check-repository.sh → build.sh → flash_sd.sh → load_audio.sh
 ```

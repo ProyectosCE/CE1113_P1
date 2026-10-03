@@ -79,7 +79,8 @@ failures=0
     metadata_file="${MANIFEST}.metadata.sha256"
     current_digest=$(ce1113_metadata_digest "$PROJECT_DIR")
     if [[ ! -f "$metadata_file" ]]; then
-        echo '[ADVERTENCIA] La imagen no tiene huella de metadata; ejecute ./build.sh otra vez.'
+        echo '[ERROR] La imagen no tiene huella de metadata; ejecute ./build.sh otra vez.'
+        failures=$((failures + 1))
     elif [[ "$(<"$metadata_file")" != "$current_digest" ]]; then
         echo '[ERROR] La metadata activa cambió después de construir la imagen.'
         failures=$((failures + 1))

@@ -4,7 +4,7 @@ set -euo pipefail
 PROJECT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 META_DIR="$PROJECT_DIR/meta-ce1113"
 PACKAGEGROUP_DIR="$META_DIR/recipes-core/packagegroups"
-CATEGORIES=(hw webapp api auraapp)
+CATEGORIES=(lib test hw auraapp)
 CATEGORY=""; RECIPE_NAME=""; VERSION=1.0.0
 
 usage() {

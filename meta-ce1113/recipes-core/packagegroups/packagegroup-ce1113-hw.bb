@@ -4,9 +4,11 @@ LICENSE = "MIT"
 inherit packagegroup
 
 RDEPENDS:${PN} = " \
-    audio-mp3 \
+    audio-storage \
+    ce1113-audio-config \
     packagegroup-machine-base \
     packagegroup-base-alsa \
+    ssh-access \
     wifi-config \
     linux-firmware-rpidistro-bcm43455 \
     brcmfmac-firmware-fix \

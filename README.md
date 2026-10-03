@@ -29,7 +29,7 @@ Mediante el desarrollo de este proyecto, cada grupo de trabajo aplicará los con
 ## Desarrollo
 
 La imagen principal es `ce1113-p1`. Todas las recetas activas están dentro de
-`meta-ce1113`, organizadas en `recipes-hw`, `recipes-webapp`, `recipes-api` y
+`meta-ce1113`, organizadas en `recipes-lib`, `recipes-test`, `recipes-hw` y
 `recipes-auraapp`. La imagen instala un único `packagegroup-ce1113`; los grupos
 por área mantienen la composición sin modificar la receta de imagen.
 
