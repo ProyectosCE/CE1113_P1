@@ -69,6 +69,15 @@ failures=0
         fi
     done < <(ce1113_required_packages)
 
+    while IFS= read -r package; do
+        if ce1113_manifest_has "$MANIFEST" "$package"; then
+            printf '[ERROR] Paquete heredado no permitido: %s\n' "$package"
+            failures=$((failures + 1))
+        else
+            printf '[OK] Paquete heredado ausente: %s\n' "$package"
+        fi
+    done < <(ce1113_forbidden_packages)
+
     if ce1113_manifest_has_prefix "$MANIFEST" 'kernel-module-snd-bcm2835-'; then
         echo '[OK] Módulo del jack: kernel-module-snd-bcm2835-*'
     else

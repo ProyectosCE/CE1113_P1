@@ -36,9 +36,31 @@ su área, nunca la receta de imagen ni `layer.conf`.
 | `recipes-hw` | Kernel, bootfiles, firmware, Wi-Fi, audio físico y montaje de música |
 | `recipes-auraapp` | Aplicación principal, servidor de audio, CGI, HTTP y frontend |
 
-Las aplicaciones no vuelven a compilar implementaciones de hardware. `aurabot`
-enlaza `libpwm.so`; el servidor enlaza `libaudio.so`; PWM, LEDs y sensores
+El contenido de las categorías funcionales es cerrado:
+
+```text
+recipes-lib/      {libgpio,pwm,audio,leds,sensors}
+recipes-test/     {app-operaciones}
+recipes-auraapp/  {aurabot,aurabot-audio-server,webapp}
+recipes-hw/       {audio-config,audio-storage,bootfiles,
+                   brcmfmac-firmware-fix,busybox,linux,wifi-config}
+```
+
+Las aplicaciones no vuelven a compilar implementaciones de hardware. Las
+cadenas de uso de bibliotecas dinámicas son:
+
+```text
+aurabot -> libpwm.so.1 -> libgpio.so.1
+aurabot-audio-server -> libaudio.so.1
+webapp -> FIFO /run/aurabot-audio/control -> servidor -> libaudio.so.1
+```
+
+La webapp no abre ALSA directamente: delega la reproducción al servidor para
+que exista un solo dueño del dispositivo de audio. PWM, LEDs y sensores
 consumen `libgpio.so` como dependencia de receta.
+
+Las ampliaciones de BusyBox también tienen dueño único. Wi-Fi se habilita desde
+`recipes-hw/busybox`; HTTP/CGI se habilita desde `recipes-auraapp/webapp`.
 
 Yocto/RPM aplica nombres basados en SONAME a los paquetes finales (`libgpio1`,
 `libpwm1`, `libaudio1`, `libleds1`, `libsensors1`). Por ello el packagegroup de
@@ -59,7 +81,8 @@ directorios `build-*`, `downloads` y `sstate-cache` son resultados locales.
 - Existe una sola imagen: `ce1113-p1` para `raspberrypi4`.
 - Todas las recetas usan minúsculas y nombres permitidos.
 - No existen `.bbappend` de la imagen; la composición usa packagegroups.
-- Los cuatro packagegroups (`lib`, `test`, `hw`, `auraapp`) forman el producto.
+- Los cuatro packagegroups (`lib`, `test`, `hw`, `auraapp`) forman el producto;
+  no existen grupos heredados `api` o `webapp`.
 - Solo `meta-ce1113` se activa; `meta-pwm` permanece excluida.
 - El código C/CMake se encuentra dentro de `files/` de una receta.
 - No se versionan builds, cachés, logs ni archivos mayores de 10 MiB.

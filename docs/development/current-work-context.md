@@ -60,9 +60,29 @@ Las categorías modernas son:
 - `recipes-lib`: bibliotecas GPIO, PWM, audio, LED y sensores.
 - `recipes-test`: aplicaciones de prueba, como `app-operaciones`.
 - `recipes-hw`: configuración física de Raspberry Pi, audio, almacenamiento,
-  Wi-Fi y acceso SSH temporal.
+  Wi-Fi, kernel, firmware y boot.
 - `recipes-auraapp`: aplicación principal, servidor de audio y aplicación web.
 - `recipes-core`: imagen y packagegroups.
+
+La auditoría estructural del 2 de octubre dejó estas categorías como conjuntos
+cerrados. Se eliminaron los directorios antiguos `recipes-api` y
+`recipes-webapp`, así como sus packagegroups sin uso. La receta de imagen
+`ce1113-p1.bb` no fue modificada: continúa instalando únicamente el packagegroup
+raíz.
+
+También se corrigieron dos responsabilidades cruzadas:
+
+- La configuración ALSA de `mpg123` pasó a `recipes-lib/audio`.
+- BusyBox Wi-Fi pertenece solo a `recipes-hw`; BusyBox HTTP/CGI pertenece solo
+  a `recipes-auraapp/webapp`.
+
+Las dependencias de ejecución quedan así:
+
+```text
+aurabot -> libpwm.so.1 -> libgpio.so.1
+aurabot-audio-server -> libaudio.so.1
+webapp -> FIFO de control -> aurabot-audio-server -> libaudio.so.1
+```
 
 ## Implementación actual de GPIO y PWM
 
@@ -234,18 +254,11 @@ La imagen instala actualmente el soporte ALSA necesario:
 No se requieren `alsa-utils-aplay` ni `alsa-utils-alsamixer` para la aplicación
 actual.
 
-## Acceso SSH temporal
+## Acceso SSH temporal retirado
 
-Existe la receta:
-
-```text
-meta-ce1113/recipes-hw/ssh-access/ssh-access_1.0.bb
-```
-
-Esta instala Dropbear. El entorno local de construcción conserva
-`debug-tweaks`, lo que permite acceso como `root` sin contraseña durante las
-pruebas. Esta configuración es insegura y debe retirarse o endurecerse antes de
-usar la imagen fuera de una red controlada.
+La receta temporal `ssh-access` y su dependencia de Dropbear fueron retiradas
+para que `recipes-hw` contenga únicamente activación y configuración de hardware
+físico. La imagen de producto ya no debe ofrecer acceso root sin contraseña.
 
 ## Script de flasheo
 
@@ -294,11 +307,11 @@ RESULTADO: ÍNTEGRA
 El artefacto construido después de estas correcciones es:
 
 ```text
-ce1113-p1-raspberrypi4.rootfs-20261003031628.wic.bz2
-SHA-256: a27b4ea8bc287156c8486785fcb90322dd6dd41337f5ae71680397ec29203d7b
+ce1113-p1-raspberrypi4.rootfs-20261003033939.wic.bz2
+SHA-256: 4065622eda026d0bd16abd48fefa1d338ea49ac594e380fa5662aa11dd462743
 ```
 
-Contiene 1862 paquetes y pasó `check_image.sh --no-ui` con
+Contiene 1860 paquetes y pasó `check_image.sh --no-ui` con
 `RESULTADO: ÍNTEGRA`.
 
 ## Prueba pendiente en la Raspberry Pi
@@ -341,7 +354,6 @@ No se debe ejecutar `unexport` inmediatamente antes de esta prueba.
 4. Si falla, conservar `/tmp/aurabot.log` y registrar los hashes de
    `/usr/bin/aurabot`, `/usr/lib/libpwm.so.1.0.0` y
    `/usr/lib/libgpio.so.1.0.0`.
-5. Retirar o endurecer `ssh-access` al finalizar las pruebas remotas.
 
 ## Estado resumido
 
@@ -349,6 +361,8 @@ No se debe ejecutar `unexport` inmediatamente antes de esta prueba.
 - Duplicados heredados: retirados.
 - Compilación CMake y prueba automatizada de PWM: correctas.
 - Validación del repositorio: correcta.
+- Estructura de recetas: validada también por un build Yocto completo, sin
+  recetas ni `.bbappend` huérfanos.
 - Imagen nueva después de las correcciones: construida y verificada localmente.
 - Prueba del nuevo flujo contra una imagen de disco simulada: correcta; conserva
   sin cambios las particiones 1 y 2 y añade `AURA_AUDIO` como partición 3.
