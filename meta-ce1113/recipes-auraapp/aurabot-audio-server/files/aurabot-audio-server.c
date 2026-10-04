@@ -14,10 +14,43 @@
 #define CONTROL_DIRECTORY "/run/aurabot-audio"
 #define CONTROL_FIFO CONTROL_DIRECTORY "/control"
 #define DEFAULT_AUDIO "/media/audio/test.mp3"
+#define PLAYLIST_PATH "/media/audio/playlist.txt"
 
 static char audio_device[96] = "default";
 
 static volatile sig_atomic_t running = 1;
+
+static int play_playlist_track(long requested_index)
+{
+    FILE *playlist;
+    char path[512];
+    long index = 0;
+
+    if (requested_index < 0 || requested_index > 9999) {
+        return -1;
+    }
+    playlist = fopen(PLAYLIST_PATH, "r");
+    if (playlist == NULL) {
+        return -1;
+    }
+    while (fgets(path, sizeof(path), playlist) != NULL) {
+        path[strcspn(path, "\r\n")] = '\0';
+        if (path[0] == '\0') {
+            continue;
+        }
+        if (index++ != requested_index) {
+            continue;
+        }
+        fclose(playlist);
+        if (strncmp(path, "/media/audio/", 13) != 0 || strstr(path, "..") != NULL ||
+            access(path, R_OK) != 0) {
+            return -1;
+        }
+        return CargarSonido(path);
+    }
+    fclose(playlist);
+    return -1;
+}
 
 static void request_shutdown(int signal_number)
 {
@@ -31,6 +64,11 @@ static int execute_command(char *command)
 
     if (strcmp(command, "PLAY") == 0) {
         return CargarSonido(DEFAULT_AUDIO);
+    }
+    if (strncmp(command, "TRACK ", 6) == 0) {
+        char *end_pointer;
+        long index = strtol(command + 6, &end_pointer, 10);
+        return *end_pointer == '\0' ? play_playlist_track(index) : -1;
     }
     if (strcmp(command, "PAUSE") == 0) {
         return Pausar();

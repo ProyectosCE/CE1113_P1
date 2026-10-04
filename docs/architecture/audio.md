@@ -37,15 +37,24 @@ PAUSE
 STOP
 VOLUME 0..100
 DEVICE <número-de-tarjeta>
+TRACK <índice-de-playlist>
 ```
 
-`PLAY` utiliza `/media/audio/test.mp3`. Prueba básica:
+`TRACK` carga la canción indicada por su posición (desde cero) en
+`/media/audio/playlist.txt`. La CGI expone esa lista a la web y solo envía el
+índice, por lo que una petición HTTP no puede inyectar una ruta arbitraria.
+`PLAY` se conserva para la prueba histórica con `/media/audio/test.mp3`.
+
+La web presenta un volumen lógico de 0 a 100 y lo convierte al rango útil del
+mezclador: 0% web equivale a 50% ALSA y 100% web equivale a 100% ALSA.
+
+Prueba básica:
 
 ```bash
 /etc/init.d/audio-storage status
 mount | grep /media/audio
 /etc/init.d/aurabot-audio status
-printf 'PLAY\n' > /run/aurabot-audio/control
+printf 'TRACK 0\n' > /run/aurabot-audio/control
 printf 'VOLUME 60\n' > /run/aurabot-audio/control
 printf 'STOP\n' > /run/aurabot-audio/control
 ```

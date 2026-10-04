@@ -88,8 +88,20 @@
 
         <section class="card">
 
-            <h2>Prueba de audio MP3</h2>
-            <p>Reproduce el archivo de prueba por la salida ALSA seleccionada.</p>
+            <h2>Reproducción de música</h2>
+            <p>Escoge una canción de la playlist y controla la reproducción.</p>
+
+            <div class="field">
+                <label for="audio-track">Canción</label>
+                <div class="track-picker">
+                    <button id="audio-previous" class="secondary" aria-label="Canción anterior">←</button>
+                    <select id="audio-track">
+                        <option value="">Cargando playlist...</option>
+                    </select>
+                    <button id="audio-next" class="secondary" aria-label="Canción siguiente">→</button>
+                </div>
+                <small id="audio-track-hint">Canciones disponibles en /media/audio.</small>
+            </div>
 
             <div class="field">
                 <label for="audio-device">Dispositivo de salida</label>
@@ -108,11 +120,11 @@
 
             <div class="field audio-volume-field">
                 <label for="audio-volume">
-                    Volumen del jack: <output id="audio-volume-value">70%</output>
+                    Volumen: <output id="audio-volume-value">0%</output>
                 </label>
                 <input id="audio-volume" type="range" min="0" max="100"
-                    step="1" value="70" aria-label="Volumen del jack analógico">
-                <small>0% silencia la salida y 100% establece el nivel máximo.</small>
+                    step="1" value="0" aria-label="Volumen del jack analógico">
+                <small>0% corresponde al nivel físico 50%; 100% corresponde al nivel físico 100%.</small>
             </div>
 
             <div class="button-grid">
@@ -121,6 +133,45 @@
                 <button data-operation="audio-stop">Stop</button>
             </div>
 
+        </section>
+
+        <section class="card">
+            <h2>Control PWM</h2>
+            <p>Configura una señal PWM por software sobre un GPIO.</p>
+            <div class="form-grid three-columns">
+                <div class="field">
+                    <label for="pwm-pin">PIN (GPIO BCM)</label>
+                    <select id="pwm-pin"></select>
+                </div>
+                <div class="field">
+                    <label for="pwm-frequency">Frecuencia (Hz)</label>
+                    <input id="pwm-frequency" type="number" min="1" max="10000" value="100" step="1">
+                </div>
+                <div class="field">
+                    <label for="pwm-duty">Ciclo de trabajo</label>
+                    <div class="range-with-value">
+                        <input id="pwm-duty" type="range" min="0" max="100" value="50" step="1">
+                        <output id="pwm-duty-value">50%</output>
+                    </div>
+                </div>
+            </div>
+            <div class="button-grid two-buttons">
+                <button id="pwm-start">Activar PWM</button>
+                <button id="pwm-stop" class="danger">Detener PWM</button>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>PIN digital</h2>
+            <p>Selecciona un GPIO y establece su salida en encendido o apagado.</p>
+            <div class="field">
+                <label for="digital-pin">PIN (GPIO BCM)</label>
+                <select id="digital-pin"></select>
+            </div>
+            <div class="button-grid two-buttons">
+                <button id="digital-on">Encender</button>
+                <button id="digital-off" class="danger">Apagar</button>
+            </div>
         </section>
 
 

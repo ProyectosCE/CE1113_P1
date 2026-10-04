@@ -1,0 +1,31 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          aurabot
+# Required-Start:    $local_fs
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Servidor de control de hardware AuraBot
+### END INIT INFO
+
+DAEMON=/usr/sbin/aurabot-supervisor
+PIDFILE=/run/aurabot-supervisor.pid
+is_running() { [ -s "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; }
+
+case "${1:-}" in
+    start)
+        is_running && exit 0
+        rm -f "$PIDFILE"
+        start-stop-daemon --start --quiet --background --make-pidfile \
+            --pidfile "$PIDFILE" --exec "$DAEMON"
+        ;;
+    stop)
+        if is_running; then
+            start-stop-daemon --stop --quiet --retry TERM/5/KILL/5 --pidfile "$PIDFILE"
+        fi
+        rm -f "$PIDFILE"
+        ;;
+    restart|force-reload) "$0" stop; sleep 1; "$0" start ;;
+    status) is_running && exit 0; exit 3 ;;
+    *) echo "Uso: $0 {start|stop|restart|status}"; exit 2 ;;
+esac

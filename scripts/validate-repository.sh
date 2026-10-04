@@ -199,10 +199,10 @@ done
 
 # Las aplicaciones consumen las bibliotecas compartidas de recipes-lib. La
 # webapp delega audio por FIFO al servidor para mantener un solo dueño de ALSA.
-grep -Eq '^DEPENDS = "pwm"' \
+grep -Eq '^DEPENDS = "[^\"]*pwm([^\"]*)"' \
     meta-ce1113/recipes-auraapp/aurabot/aurabot_1.0.0.bb || \
     fail 'aurabot debe depender de la receta pwm'
-grep -q 'target_link_libraries(aurabot PRIVATE ${PWM_LIBRARY})' \
+grep -Eq 'target_link_libraries\(aurabot PRIVATE.*\$\{PWM_LIBRARY\}' \
     meta-ce1113/recipes-auraapp/aurabot/files/CMakeLists.txt || \
     fail 'aurabot debe enlazar libpwm dinámicamente'
 grep -Eq '^DEPENDS = "audio"' \

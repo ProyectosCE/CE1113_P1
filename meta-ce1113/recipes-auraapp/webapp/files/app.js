@@ -2,6 +2,22 @@ const API = "/cgi-bin/operaciones.cgi";
 
 const resultElement = document.getElementById("result");
 const statusElement = document.getElementById("status");
+const GPIO_PINS = [4, 5, 6, 12, 13, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27];
+
+async function callApi(parameters) {
+    statusElement.textContent = "Enviando comando...";
+    try {
+        const response = await fetch(`${API}?${new URLSearchParams(parameters)}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        showResult(data);
+        return data;
+    } catch (error) {
+        statusElement.textContent = "Error de comunicación";
+        resultElement.textContent = error.message;
+        return null;
+    }
+}
 
 async function executeOperation(operation) {
 
@@ -14,6 +30,15 @@ async function executeOperation(operation) {
 
         url =
             `${API}?op=mensaje`;
+
+    } else if (operation === "audio-play") {
+
+        const track = document.getElementById("audio-track").value;
+        if (track === "") {
+            statusElement.textContent = "Seleccione una canción";
+            return;
+        }
+        url = `${API}?op=audio-track&track=${encodeURIComponent(track)}`;
 
     } else if (operation.startsWith("audio-")) {
 
@@ -58,6 +83,38 @@ async function executeOperation(operation) {
         resultElement.textContent =
             error.message;
     }
+}
+
+async function loadPlaylist() {
+    const select = document.getElementById("audio-track");
+    const hint = document.getElementById("audio-track-hint");
+    try {
+        const response = await fetch(`${API}?op=audio-playlist`);
+        const data = await response.json();
+        if (!data.ok || !Array.isArray(data.canciones)) throw new Error("Playlist no válida");
+        select.innerHTML = "";
+        data.canciones.forEach((song, index) => {
+            const option = document.createElement("option");
+            option.value = String(index);
+            option.textContent = song;
+            select.appendChild(option);
+        });
+        if (data.canciones.length === 0) {
+            select.innerHTML = '<option value="">No hay canciones disponibles</option>';
+            hint.textContent = "Cargue archivos MP3 y genere /media/audio/playlist.txt.";
+        } else {
+            hint.textContent = `${data.canciones.length} canción(es) disponibles.`;
+        }
+    } catch (error) {
+        select.innerHTML = '<option value="">No se pudo cargar la playlist</option>';
+        hint.textContent = error.message;
+    }
+}
+
+function moveTrack(offset) {
+    const select = document.getElementById("audio-track");
+    if (select.options.length === 0 || select.value === "") return;
+    select.selectedIndex = (select.selectedIndex + offset + select.options.length) % select.options.length;
 }
 
 async function loadAudioDevices() {
@@ -183,6 +240,48 @@ audioVolume.addEventListener("input", () => {
 });
 audioVolume.addEventListener("change", applyAudioVolume);
 
+document.getElementById("audio-previous").addEventListener("click", () => moveTrack(-1));
+document.getElementById("audio-next").addEventListener("click", () => moveTrack(1));
+
+function fillPinSelectors() {
+    ["pwm-pin", "digital-pin"].forEach(id => {
+        const select = document.getElementById(id);
+        GPIO_PINS.forEach(pin => {
+            const option = document.createElement("option");
+            option.value = String(pin);
+            option.textContent = `GPIO ${pin}`;
+            select.appendChild(option);
+        });
+        select.value = "17";
+    });
+}
+
+const pwmDuty = document.getElementById("pwm-duty");
+pwmDuty.addEventListener("input", () => {
+    document.getElementById("pwm-duty-value").textContent = `${pwmDuty.value}%`;
+});
+
+document.getElementById("pwm-start").addEventListener("click", () => callApi({
+    op: "pwm-set",
+    pin: document.getElementById("pwm-pin").value,
+    frequency: document.getElementById("pwm-frequency").value,
+    duty: pwmDuty.value
+}));
+document.getElementById("pwm-stop").addEventListener("click", () => callApi({
+    op: "pwm-stop",
+    pin: document.getElementById("pwm-pin").value
+}));
+document.getElementById("digital-on").addEventListener("click", () => callApi({
+    op: "digital-write",
+    pin: document.getElementById("digital-pin").value,
+    value: "1"
+}));
+document.getElementById("digital-off").addEventListener("click", () => callApi({
+    op: "digital-write",
+    pin: document.getElementById("digital-pin").value,
+    value: "0"
+}));
+
 
 document
     .getElementById("message-button")
@@ -191,4 +290,6 @@ document
         executeOperation("mensaje");
     });
 
+fillPinSelectors();
 loadAudioDevices();
+loadPlaylist();

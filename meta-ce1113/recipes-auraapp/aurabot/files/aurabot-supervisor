@@ -1,0 +1,17 @@
+#!/bin/sh
+child_pid=""
+stop_child() {
+    [ -z "$child_pid" ] || kill "$child_pid" 2>/dev/null
+    [ -z "$child_pid" ] || wait "$child_pid" 2>/dev/null
+    exit 0
+}
+trap stop_child INT TERM
+while :; do
+    /usr/bin/aurabot &
+    child_pid=$!
+    wait "$child_pid"
+    result=$?
+    child_pid=""
+    logger -t aurabot "servidor terminó con código $result; reiniciando"
+    sleep 2
+done
