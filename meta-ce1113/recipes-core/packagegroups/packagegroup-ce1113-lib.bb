@@ -1,7 +1,6 @@
 SUMMARY = "Bibliotecas dinámicas de AuraBot"
 LICENSE = "MIT"
 
-
 # Las bibliotecas ELF son renombradas por debian.bbclass según su SONAME
 # (audio -> libaudio1, pwm -> libpwm1, etc.). El packagegroup no puede ser
 # allarch porque esa resolución depende de la arquitectura de destino.
