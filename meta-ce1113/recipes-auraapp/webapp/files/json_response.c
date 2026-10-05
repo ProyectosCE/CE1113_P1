@@ -5,6 +5,7 @@
 void json_header(void)
 {
     printf("Content-Type: application/json\r\n");
+    printf("Cache-Control: no-store\r\n");
     printf("\r\n");
 }
 

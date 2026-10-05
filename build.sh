@@ -56,6 +56,8 @@ sed -i '/^# BEGIN CE1113 MANAGED$/,/^# END CE1113 MANAGED$/d' conf/local.conf
 {
     echo '# BEGIN CE1113 MANAGED'
     printf 'MACHINE = "%s"\n' "$MACHINE"
+    echo 'DISTRO = "poky"'
+    echo 'INIT_MANAGER = "sysvinit"'
     echo 'LICENSE_FLAGS_ACCEPTED:append = " synaptics-killswitch"'
     echo '# END CE1113 MANAGED'
 } >> conf/local.conf

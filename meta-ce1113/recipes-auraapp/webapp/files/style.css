@@ -61,6 +61,10 @@ code {
     gap: 16px;
 }
 
+.three-columns {
+    grid-template-columns: repeat(3, 1fr);
+}
+
 .field {
     display: flex;
     flex-direction: column;
@@ -90,6 +94,38 @@ select:focus {
 
 #audio-device-hint {
     color: #64748b;
+}
+
+small {
+    color: #64748b;
+}
+
+.track-picker {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+}
+
+.track-picker button {
+    padding-inline: 18px;
+}
+
+.range-with-value {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 43px;
+}
+
+.range-with-value input {
+    padding: 0;
+    accent-color: #2563eb;
+}
+
+.range-with-value output {
+    min-width: 3.2rem;
+    color: #2563eb;
+    font-weight: 700;
 }
 
 .audio-volume-field {
@@ -138,6 +174,18 @@ button:active {
     transform: translateY(1px);
 }
 
+button.secondary {
+    background: #475569;
+}
+
+button.danger {
+    background: #dc2626;
+}
+
+.two-buttons {
+    grid-template-columns: repeat(2, 1fr);
+}
+
 #message-button {
     background: #7c3aed;
 }
@@ -179,7 +227,8 @@ button:active {
         font-size: 1.9rem;
     }
 
-    .form-grid {
+    .form-grid,
+    .three-columns {
         grid-template-columns: 1fr;
     }
 
@@ -187,3 +236,19 @@ button:active {
         grid-template-columns: 1fr;
     }
 }
+
+input[role="switch"] { width: auto; margin-right: 8px; accent-color: #2563eb; }
+button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.telemetry { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.telemetry dt { color: #64748b; }
+.telemetry dd { margin: 0; font-weight: 600; }
+.manual-speed { margin-top: 20px; }
+.drive-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
+.drive-pad button { touch-action: none; user-select: none; }
+.drive-pad .pressed { background: #0f172a; }
+.drive-forward { grid-area: 1 / 2; }
+.drive-left { grid-area: 2 / 1; }
+.drive-stop { grid-area: 2 / 2; }
+.drive-right { grid-area: 2 / 3; }
+.drive-reverse { grid-area: 3 / 2; }
+#robot-map { display: block; width: min(100%, 400px); height: auto; border: 1px solid #cbd5e1; }

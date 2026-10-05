@@ -8,4 +8,4 @@ PACKAGE_ARCH = "${TUNE_PKGARCH}"
 
 inherit packagegroup
 
-RDEPENDS:${PN} = "libgpio pwm audio leds sensors"
+RDEPENDS:${PN} = "libgpio pwm audio leds sensors aurabot-api"
