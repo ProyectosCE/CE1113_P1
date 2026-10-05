@@ -10,9 +10,10 @@
 
 #include <aurabot_protocol.h>
 
-#include "fsm.h"
+#include "audio_controller.h"
 #include "hardware.h"
 #include "ipc_server.h"
+#include "robot_controller.h"
 
 static int set_nonblocking(int descriptor)
 {
@@ -127,29 +128,42 @@ static int dispatch(aurabot_state_t *state, unsigned int command,
         return AURABOT_OK;
     case AURABOT_CMD_SET_MODE:
         if (request_size != 4U) return AURABOT_ERR_PROTOCOL;
-        return fsm_set_mode(state,
+        return robot_controller_set_mode(state,
             (aurabot_mode_t)aurabot_wire_get_int(request));
+    case AURABOT_CMD_DIGITAL_WRITE:
+    case AURABOT_CMD_PWM_SET:
+    case AURABOT_CMD_PWM_STOP:
+        if (request_size != (command == AURABOT_CMD_PWM_SET ? 12U :
+            command == AURABOT_CMD_DIGITAL_WRITE ? 8U : 4U))
+            return AURABOT_ERR_PROTOCOL;
+        if (state->public_status.mode != AURABOT_MODE_MANUAL)
+            return AURABOT_ERR_WRONG_MODE;
+        return hardware_test_gpio(aurabot_wire_get_int(request),
+            request_size >= 8U ? aurabot_wire_get_int(request + 4) : 0,
+            request_size == 12U ? aurabot_wire_get_int(request + 8) : 0,
+            command == AURABOT_CMD_PWM_SET ? 1 :
+            command == AURABOT_CMD_PWM_STOP ? 2 : 0);
     case AURABOT_CMD_CLAIM_CONTROL:
         if (request_size != AURABOT_OWNER_TOKEN_SIZE) return AURABOT_ERR_PROTOCOL;
-        return fsm_claim_control(state, request);
+        return robot_controller_claim(state, request);
     case AURABOT_CMD_CONTROL_HEARTBEAT:
         if (request_size != AURABOT_OWNER_TOKEN_SIZE) return AURABOT_ERR_PROTOCOL;
-        return fsm_control_heartbeat(state, request);
+        return robot_controller_heartbeat(state, request);
     case AURABOT_CMD_RELEASE_CONTROL:
         if (request_size != AURABOT_OWNER_TOKEN_SIZE) return AURABOT_ERR_PROTOCOL;
-        return fsm_release_control(state, request);
+        return robot_controller_release(state, request);
     case AURABOT_CMD_DRIVE:
         if (request_size != AURABOT_OWNER_TOKEN_SIZE + 8U)
             return AURABOT_ERR_PROTOCOL;
-        return fsm_drive(state, request,
+        return robot_controller_drive(state, request,
             aurabot_wire_get_int(request + AURABOT_OWNER_TOKEN_SIZE),
             aurabot_wire_get_int(request + AURABOT_OWNER_TOKEN_SIZE + 4U));
     case AURABOT_CMD_STOP:
         if (request_size != AURABOT_OWNER_TOKEN_SIZE) return AURABOT_ERR_PROTOCOL;
-        return fsm_stop(state, request);
+        return robot_controller_stop(state, request);
     case AURABOT_CMD_EMERGENCY_STOP:
         if (request_size != 0U) return AURABOT_ERR_PROTOCOL;
-        return fsm_emergency_stop(state);
+        return robot_controller_emergency_stop(state);
     case AURABOT_CMD_GET_MAP:
         if (request_size != 0U) return AURABOT_ERR_PROTOCOL;
         aurabot_wire_put_uint(response, AURABOT_MAP_WIDTH);
@@ -161,43 +175,26 @@ static int dispatch(aurabot_state_t *state, unsigned int command,
         return result;
     case AURABOT_CMD_AUDIO_PLAY:
         if (request_size != 4U) return AURABOT_ERR_PROTOCOL;
-        if (aurabot_wire_get_uint(request) >= hardware_audio_track_count())
-            return AURABOT_ERR_INVALID_ARGUMENT;
-        if (hardware_audio_play(aurabot_wire_get_uint(request)) != 0) {
-            state->public_status.audio_state = AURABOT_AUDIO_ERROR;
-            return AURABOT_ERR_HARDWARE;
-        }
-        state->public_status.audio_state = AURABOT_AUDIO_PLAYING;
-        state->public_status.audio_track_index =
-            (int)aurabot_wire_get_uint(request);
-        return AURABOT_OK;
+        return audio_controller_play(state, aurabot_wire_get_uint(request));
     case AURABOT_CMD_AUDIO_PAUSE:
         if (request_size != 0U) return AURABOT_ERR_PROTOCOL;
-        if (hardware_audio_pause() != 0) return AURABOT_ERR_HARDWARE;
-        state->public_status.audio_state = AURABOT_AUDIO_PAUSED;
-        return AURABOT_OK;
+        return audio_controller_pause(state);
     case AURABOT_CMD_AUDIO_STOP:
         if (request_size != 0U) return AURABOT_ERR_PROTOCOL;
-        if (hardware_audio_stop() != 0) return AURABOT_ERR_HARDWARE;
-        state->public_status.audio_state = AURABOT_AUDIO_STOPPED;
-        state->public_status.audio_track_index = -1;
-        return AURABOT_OK;
+        return audio_controller_stop(state);
     case AURABOT_CMD_AUDIO_SET_VOLUME:
         if (request_size != 4U) return AURABOT_ERR_PROTOCOL;
         result = aurabot_wire_get_int(request);
-        if (result < 0 || result > 100) return AURABOT_ERR_INVALID_ARGUMENT;
-        if (hardware_audio_set_volume(result) != 0) return AURABOT_ERR_HARDWARE;
-        state->public_status.audio_volume_percent = result;
-        return AURABOT_OK;
+        return audio_controller_set_volume(state, result);
     case AURABOT_CMD_AUDIO_GET_TRACK_COUNT:
         if (request_size != 0U) return AURABOT_ERR_PROTOCOL;
-        aurabot_wire_put_uint(response, hardware_audio_track_count());
+        aurabot_wire_put_uint(response, audio_controller_track_count());
         *response_size = 4U;
         return AURABOT_OK;
     case AURABOT_CMD_AUDIO_GET_TRACK_NAME:
         if (request_size != 4U) return AURABOT_ERR_PROTOCOL;
-        if (hardware_audio_track_name(aurabot_wire_get_uint(request),
-            (char *)response, AURABOT_TRACK_NAME_SIZE) != 0)
+        if (audio_controller_track_name(aurabot_wire_get_uint(request),
+            (char *)response, AURABOT_TRACK_NAME_SIZE) != AURABOT_OK)
             return AURABOT_ERR_INVALID_ARGUMENT;
         *response_size = (unsigned int)strlen((char *)response) + 1U;
         return AURABOT_OK;

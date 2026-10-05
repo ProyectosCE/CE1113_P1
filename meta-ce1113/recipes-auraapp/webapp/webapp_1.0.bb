@@ -5,6 +5,7 @@ LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=01a1da8f041f97d0885a60dfc1ad8459"
 
 RDEPENDS:${PN} += "busybox"
+DEPENDS += "aurabot-api"
 
 SRC_URI = " \
     file://index.html \
@@ -31,8 +32,7 @@ do_install:append() {
     install -d ${D}/www
     install -d ${D}/www/cgi-bin
     install -d ${D}/etc
-    install -d ${D}${sysconfdir}/init.d
-    install -d ${D}${sbindir}
+    install -d ${D}${sysconfdir}/init.d ${D}${sbindir}
 
     install -m 0644 ${WORKDIR}/index.html \
         ${D}/www/index.html
@@ -48,7 +48,6 @@ do_install:append() {
 
     install -m 0755 ${WORKDIR}/webapp-httpd.init \
         ${D}${sysconfdir}/init.d/webapp-httpd
-
     install -m 0755 ${WORKDIR}/webapp-httpd-supervisor \
         ${D}${sbindir}/webapp-httpd-supervisor
 }

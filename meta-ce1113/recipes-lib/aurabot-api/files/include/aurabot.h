@@ -75,6 +75,10 @@ int aurabot_drive(const unsigned char owner_token[AURABOT_OWNER_TOKEN_SIZE],
                   int left_percent, int right_percent);
 int aurabot_stop(const unsigned char owner_token[AURABOT_OWNER_TOKEN_SIZE]);
 int aurabot_emergency_stop(void);
+/* Pruebas GPIO: solo pines libres, con el robot en modo manual. */
+int aurabot_digital_write(int pin, int value);
+int aurabot_pwm_set(int pin, int frequency, int duty);
+int aurabot_pwm_stop(int pin);
 
 int aurabot_get_map(unsigned char *cells, unsigned int capacity,
                     unsigned int *required_size);

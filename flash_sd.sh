@@ -26,9 +26,39 @@ while (($#)); do
     esac
 done
 
-for tool in lsblk findmnt sfdisk partprobe blockdev timeout blkid mkfs.ext4 dd sync sha256sum; do
+for tool in lsblk findmnt sfdisk partprobe blockdev timeout blkid mkfs.ext4 sync sha256sum; do
     command -v "$tool" >/dev/null || { echo "Error: falta $tool." >&2; exit 1; }
 done
+
+# Ubuntu puede ofrecer uutils como dd predeterminado. Usar GNU dd de forma
+# explícita mantiene la semántica de fullblock/fsync y los errores de lectura.
+DD_TOOL=""
+for candidate in gnudd dd; do
+    candidate_path=$(command -v "$candidate" || true)
+    if [[ -n "$candidate_path" ]] &&
+        "$candidate_path" --version 2>/dev/null | grep -q 'coreutils)'; then
+        DD_TOOL=$candidate_path
+        break
+    fi
+done
+[[ -n "$DD_TOOL" ]] || {
+    echo 'Error: se requiere GNU dd (gnudd o dd de GNU coreutils).' >&2
+    exit 1
+}
+
+FLASH_STAGE="preparación"
+flash_failed() {
+    local result=$?
+    trap - ERR
+    printf '\nError durante: %s (código %s).\n' "$FLASH_STAGE" "$result" >&2
+    echo 'La SD no se ha declarado verificada. No se reintentará su escritura automáticamente.' >&2
+    if [[ -n "${TARGET_DEVICE:-}" ]]; then
+        printf 'Para revisar errores del lector/tarjeta: sudo dmesg | tail -60\n' >&2
+    fi
+    exit "$result"
+}
+set -E
+trap flash_failed ERR
 
 settle_udev() {
     if command -v udevadm >/dev/null; then
@@ -146,6 +176,7 @@ fi
 is_safe_removable_disk "$TARGET_DEVICE" || {
     echo "Error: $TARGET_DEVICE no es un disco removible seguro o contiene /." >&2; exit 1;
 }
+TARGET_DEVICE=$(readlink -f "$TARGET_DEVICE")
 DEVICE_INFO=$(lsblk -dn -o NAME,SIZE,MODEL,TRAN,RM "$TARGET_DEVICE")
 
 # La partición musical ocupa 2 GiB al final de la SD. Si ya existe una tercera
@@ -153,7 +184,13 @@ DEVICE_INFO=$(lsblk -dn -o NAME,SIZE,MODEL,TRAN,RM "$TARGET_DEVICE")
 # contenido aunque el WIC reemplace temporalmente la tabla de particiones.
 SECTOR_BYTES=512
 AUDIO_SIZE_SECTORS=$((2 * 1024 * 1024 * 1024 / SECTOR_BYTES))
-DISK_BYTES=$(lsblk -bdno SIZE "$TARGET_DEVICE")
+DISK_BYTES=$(lsblk -brdno SIZE "$TARGET_DEVICE")
+DEVICE_ID=$(lsblk -dn -o MAJ:MIN "$TARGET_DEVICE")
+LOGICAL_SECTOR_BYTES=$(lsblk -brdno LOG-SEC "$TARGET_DEVICE")
+[[ "$LOGICAL_SECTOR_BYTES" == 512 ]] || {
+    echo "Error: tamaño de sector lógico detectado: '$LOGICAL_SECTOR_BYTES'; se requieren 512 bytes." >&2
+    exit 1
+}
 DISK_SECTORS=$((DISK_BYTES / SECTOR_BYTES))
 AUDIO_START=$(( (DISK_SECTORS - AUDIO_SIZE_SECTORS) / 2048 * 2048 ))
 AUDIO_SECTORS=$AUDIO_SIZE_SECTORS
@@ -170,6 +207,10 @@ while read -r path part_number start size_bytes label filesystem; do
 done < <(lsblk -brnpo PATH,PARTN,START,SIZE,LABEL,FSTYPE "$TARGET_DEVICE" | tail -n +2)
 
 IMAGE_BYTES=$(image_size_bytes "$IMAGE_FILE")
+if ((IMAGE_BYTES == 0 || IMAGE_BYTES % SECTOR_BYTES != 0)); then
+    echo 'Error: el WIC debe ser no vacío y estar alineado a sectores de 512 bytes.' >&2
+    exit 1
+fi
 IMAGE_SECTORS=$(( (IMAGE_BYTES + SECTOR_BYTES - 1) / SECTOR_BYTES ))
 if ((AUDIO_START <= IMAGE_SECTORS + 2048)); then
     echo "Error: el WIC ($IMAGE_BYTES bytes) invade la partición musical reservada." >&2
@@ -198,24 +239,75 @@ LOS AUDIOS DE AURA_AUDIO SE CONSERVARÁN SI YA EXISTE."
 fi
 
 sudo -v
+if ((AUDIO_EXISTS == 0)); then
+    # Un intento anterior puede haber grabado la tabla WIC y fallado antes de
+    # restaurar p3. Buscar el filesystem en la posición reservada antes de
+    # decidir formatear: perder la entrada p3 no implica perder sus audios.
+    audio_offset=$((AUDIO_START * SECTOR_BYTES))
+    recovered_type=$(sudo blkid -p -O "$audio_offset" -s TYPE -o value "$TARGET_DEVICE" || true)
+    recovered_label=$(sudo blkid -p -O "$audio_offset" -s LABEL -o value "$TARGET_DEVICE" || true)
+    if [[ "$recovered_type" == ext4 && "$recovered_label" == AURA_AUDIO ]]; then
+        AUDIO_EXISTS=1
+        echo 'AURA_AUDIO detectada sin entrada p3; se restaurará sin formatear.'
+    elif [[ -n "$recovered_type" ]]; then
+        echo 'Error: existe un filesystem distinto en el área musical; no se formateará.' >&2
+        exit 1
+    fi
+fi
 is_safe_removable_disk "$TARGET_DEVICE" || {
     echo 'Error: el dispositivo cambió o fue desconectado.' >&2; exit 1;
 }
+[[ "$(lsblk -dn -o MAJ:MIN "$TARGET_DEVICE")" == "$DEVICE_ID" &&
+   "$(lsblk -brdno SIZE "$TARGET_DEVICE")" == "$DISK_BYTES" ]] || {
+    echo 'Error: cambió la identidad o capacidad del dispositivo seleccionado.' >&2
+    exit 1
+}
+FLASH_STAGE="desmontaje de la SD"
 mapfile -t PARTITIONS < <(lsblk -lnpo PATH "$TARGET_DEVICE" | tail -n +2)
-for partition in "${PARTITIONS[@]}"; do sudo umount "$partition" 2>/dev/null || true; done
-sudo umount "$TARGET_DEVICE" 2>/dev/null || true
+for partition in "${PARTITIONS[@]}" "$TARGET_DEVICE"; do
+    if findmnt -rn -S "$partition" >/dev/null; then
+        sudo umount --all-targets "$partition"
+    fi
+done
+for partition in "${PARTITIONS[@]}" "$TARGET_DEVICE"; do
+    if findmnt -rn -S "$partition" >/dev/null; then
+        echo "Error: $partition sigue montado; no se escribirá la SD." >&2
+        exit 1
+    fi
+done
+EXPECTED_RAW_HASH=$(image_raw_sha256 "$IMAGE_FILE")
+FLASH_STAGE="escritura del WIC"
+echo "Herramienta: $DD_TOOL; imagen sin comprimir: $IMAGE_BYTES bytes"
 echo "Grabando $(basename "$IMAGE_FILE") en $TARGET_DEVICE..."
 case "$IMAGE_FILE" in
-    *.wic.bz2) bzip2 -dc "$IMAGE_FILE" | sudo dd of="$TARGET_DEVICE" bs=4M status=progress conv=fsync ;;
-    *.wic.gz)  gzip -dc "$IMAGE_FILE" | sudo dd of="$TARGET_DEVICE" bs=4M status=progress conv=fsync ;;
-    *.wic.xz)  xz -dc "$IMAGE_FILE" | sudo dd of="$TARGET_DEVICE" bs=4M status=progress conv=fsync ;;
-    *.wic)     sudo dd if="$IMAGE_FILE" of="$TARGET_DEVICE" bs=4M status=progress conv=fsync ;;
+    *.wic.bz2) bzip2 -dc "$IMAGE_FILE" | sudo "$DD_TOOL" of="$TARGET_DEVICE" bs=4M iflag=fullblock status=progress conv=fsync ;;
+    *.wic.gz)  gzip -dc "$IMAGE_FILE" | sudo "$DD_TOOL" of="$TARGET_DEVICE" bs=4M iflag=fullblock status=progress conv=fsync ;;
+    *.wic.xz)  xz -dc "$IMAGE_FILE" | sudo "$DD_TOOL" of="$TARGET_DEVICE" bs=4M iflag=fullblock status=progress conv=fsync ;;
+    *.wic)     sudo "$DD_TOOL" if="$IMAGE_FILE" of="$TARGET_DEVICE" bs=4M iflag=fullblock status=progress conv=fsync ;;
 esac
-sudo sync
+FLASH_STAGE="sincronización de la SD"
+sudo sync "$TARGET_DEVICE"
+
+# Verificar antes de notificar cambios de particiones a udev: la relectura puede
+# disparar el automontaje y modificar el filesystem mientras se calcula el hash.
+# Vaciar la caché obliga a leer el dispositivo, no solo los datos recién escritos.
+FLASH_STAGE="lectura de verificación"
+echo "Verificando por lectura $IMAGE_BYTES bytes de $TARGET_DEVICE..."
+sudo blockdev --flushbufs "$TARGET_DEVICE"
+WRITTEN_RAW_HASH=$(sudo "$DD_TOOL" if="$TARGET_DEVICE" bs=512 \
+    iflag=fullblock count="$IMAGE_SECTORS" status=progress | sha256sum | awk '{print $1}')
+if [[ "$WRITTEN_RAW_HASH" != "$EXPECTED_RAW_HASH" ]]; then
+    echo 'Error: la verificación de lectura posterior a la grabación falló.' >&2
+    echo "Esperado: $EXPECTED_RAW_HASH" >&2
+    echo "Leído:    $WRITTEN_RAW_HASH" >&2
+    exit 1
+fi
+echo 'WIC escrito y verificado correctamente.'
 
 # Antes de tocar la tabla que dejó el WIC, se relee del dispositivo exactamente
 # la cantidad grabada. Esto detecta una escritura incompleta o dirigida al medio
 # equivocado antes de anunciar una SD arrancable.
+FLASH_STAGE="relectura de particiones del WIC"
 reread_partition_table "$TARGET_DEVICE"
 BOOT_PARTITION=$(partition_path "$TARGET_DEVICE" 1)
 SYSTEM_PARTITION=$(partition_path "$TARGET_DEVICE" 2)
@@ -227,22 +319,12 @@ wait_for_block_device "$SYSTEM_PARTITION" || {
     echo "Error: el WIC no creó $SYSTEM_PARTITION." >&2; exit 1;
 }
 
-EXPECTED_RAW_HASH=$(image_raw_sha256 "$IMAGE_FILE")
-WRITTEN_RAW_HASH=$(sudo dd if="$TARGET_DEVICE" bs=4M iflag=count_bytes \
-    count="$IMAGE_BYTES" status=none | sha256sum | awk '{print $1}')
-if [[ "$WRITTEN_RAW_HASH" != "$EXPECTED_RAW_HASH" ]]; then
-    echo 'Error: la verificación de lectura posterior a la grabación falló.' >&2
-    echo "Esperado: $EXPECTED_RAW_HASH" >&2
-    echo "Leído:    $WRITTEN_RAW_HASH" >&2
-    exit 1
-fi
-
 # Guardar la geometría arrancable del WIC. La partición musical se añade sin
 # redimensionar ni modificar la partición raíz en vivo.
-BOOT_START=$(lsblk -bdno START "$BOOT_PARTITION")
-BOOT_SIZE=$(lsblk -bdno SIZE "$BOOT_PARTITION")
-SYSTEM_START=$(lsblk -bdno START "$SYSTEM_PARTITION")
-SYSTEM_SIZE=$(lsblk -bdno SIZE "$SYSTEM_PARTITION")
+BOOT_START=$(lsblk -brdno START "$BOOT_PARTITION")
+BOOT_SIZE=$(lsblk -brdno SIZE "$BOOT_PARTITION")
+SYSTEM_START=$(lsblk -brdno START "$SYSTEM_PARTITION")
+SYSTEM_SIZE=$(lsblk -brdno SIZE "$SYSTEM_PARTITION")
 
 # El WIC restaura sus particiones de arranque/rootfs y su tabla, pero no escribe
 # hasta el final de la SD. Se vuelve a registrar la partición 3 en la geometría
@@ -251,6 +333,7 @@ if lsblk -rnpo PARTN "$TARGET_DEVICE" | grep -qx 3; then
     echo 'Error: el WIC ya contiene una partición 3; no se puede reservar AURA_AUDIO.' >&2
     exit 1
 fi
+FLASH_STAGE="restauración de la partición musical"
 printf 'start=%s, size=%s, type=83\n' "$AUDIO_START" "$AUDIO_SECTORS" \
     | sudo sfdisk --append "$TARGET_DEVICE"
 reread_partition_table "$TARGET_DEVICE"
@@ -259,6 +342,7 @@ wait_for_block_device "$AUDIO_PARTITION" || {
 }
 
 if ((AUDIO_EXISTS == 0)); then
+    FLASH_STAGE="creación del filesystem musical"
     sudo mkfs.ext4 -F -L AURA_AUDIO "$AUDIO_PARTITION"
 else
     [[ "$(sudo blkid -s TYPE -o value "$AUDIO_PARTITION")" == ext4 ]] || {
@@ -269,17 +353,18 @@ else
     }
 fi
 sudo sync
+FLASH_STAGE="comprobación final de particiones"
 
 # El alta de p3 no puede cambiar los límites de arranque ni de rootfs.
-[[ "$(lsblk -bdno START "$BOOT_PARTITION")" == "$BOOT_START" &&
-   "$(lsblk -bdno SIZE "$BOOT_PARTITION")" == "$BOOT_SIZE" &&
-   "$(lsblk -bdno START "$SYSTEM_PARTITION")" == "$SYSTEM_START" &&
-   "$(lsblk -bdno SIZE "$SYSTEM_PARTITION")" == "$SYSTEM_SIZE" ]] || {
+[[ "$(lsblk -brdno START "$BOOT_PARTITION")" == "$BOOT_START" &&
+   "$(lsblk -brdno SIZE "$BOOT_PARTITION")" == "$BOOT_SIZE" &&
+   "$(lsblk -brdno START "$SYSTEM_PARTITION")" == "$SYSTEM_START" &&
+   "$(lsblk -brdno SIZE "$SYSTEM_PARTITION")" == "$SYSTEM_SIZE" ]] || {
     echo 'Error: la geometría de las particiones arrancables cambió.' >&2
     exit 1
 }
-[[ "$(lsblk -bdno START "$AUDIO_PARTITION")" == "$AUDIO_START" &&
-   $(( $(lsblk -bdno SIZE "$AUDIO_PARTITION") / SECTOR_BYTES )) == "$AUDIO_SECTORS" ]] || {
+[[ "$(lsblk -brdno START "$AUDIO_PARTITION")" == "$AUDIO_START" &&
+   $(( $(lsblk -brdno SIZE "$AUDIO_PARTITION") / SECTOR_BYTES )) == "$AUDIO_SECTORS" ]] || {
     echo 'Error: AURA_AUDIO no quedó en la geometría solicitada.' >&2
     exit 1
 }

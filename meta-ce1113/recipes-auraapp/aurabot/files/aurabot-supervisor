@@ -1,15 +1,19 @@
 #!/bin/sh
+
 child_pid=""
 failure_count=0
+
 stop_child() {
     [ -z "$child_pid" ] || kill "$child_pid" 2>/dev/null
     [ -z "$child_pid" ] || wait "$child_pid" 2>/dev/null
     exit 0
 }
+
 trap stop_child INT TERM
+
 while :; do
     started_at=$(date +%s)
-    /usr/bin/aurabot &
+    /usr/bin/aurabot >>/var/log/aurabot.log 2>&1 &
     child_pid=$!
     wait "$child_pid"
     result=$?

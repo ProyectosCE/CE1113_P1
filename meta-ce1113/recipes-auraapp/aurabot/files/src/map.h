@@ -3,8 +3,6 @@
 
 #include <aurabot.h>
 
-#define AURABOT_MAP_CELL_MM 100
-
 typedef struct {
     unsigned char cells[AURABOT_MAP_CELLS];
     unsigned int revision;

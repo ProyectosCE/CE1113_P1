@@ -10,7 +10,8 @@ INITSCRIPT_PARAMS = "defaults 20"
 
 do_install() {
     install -d ${D}${sysconfdir}/init.d
-    install -m 0755 ${WORKDIR}/audio-storage.init ${D}${sysconfdir}/init.d/audio-storage
+    install -m 0755 ${WORKDIR}/audio-storage.init \
+        ${D}${sysconfdir}/init.d/audio-storage
 }
 
 FILES:${PN} += "${sysconfdir}/init.d/audio-storage"

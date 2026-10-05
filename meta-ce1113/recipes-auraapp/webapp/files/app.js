@@ -2,7 +2,48 @@ const API = "/cgi-bin/operaciones.cgi";
 
 const resultElement = document.getElementById("result");
 const statusElement = document.getElementById("status");
-const GPIO_PINS = [4, 5, 6, 12, 13, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27];
+const GPIO_PINS = [4, 12, 13, 18, 19, 20, 21, 25, 26];
+
+const robotMode = document.getElementById("robot-mode");
+const robotState = document.getElementById("robot-state");
+let modeChangePending = false;
+let statusPending = false;
+
+async function refreshRobotStatus() {
+    if (modeChangePending || statusPending) return;
+    statusPending = true;
+    try {
+        const response = await fetch(`${API}?op=robot-status`, { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || "AuraBot no disponible");
+        if (modeChangePending) return;
+        robotMode.checked = data.mode === 1;
+        robotMode.disabled = false;
+        const names = ["Inicializando", "Autónomo", "Manual", "Parada segura"];
+        robotState.textContent = `${names[data.mode] || "Desconocido"} · motores ${data.motors.join(", ")} · sensores ${data.sensors.join(", ")}`;
+    } catch (error) {
+        if (!modeChangePending) {
+            robotMode.disabled = true;
+            robotState.textContent = error.message;
+        }
+    } finally { statusPending = false; }
+}
+
+robotMode.addEventListener("change", async () => {
+    modeChangePending = true;
+    robotMode.disabled = true;
+    try { await callApi({ op: "robot-mode", mode: robotMode.checked ? "1" : "2" }); }
+    finally {
+        modeChangePending = false;
+        await refreshRobotStatus();
+    }
+});
+document.getElementById("robot-emergency-stop").addEventListener("click", async () => {
+    await callApi({ op: "robot-emergency-stop" });
+    await refreshRobotStatus();
+});
+refreshRobotStatus();
+setInterval(refreshRobotStatus, 1000);
 
 async function callApi(parameters) {
     statusElement.textContent = "Enviando comando...";
@@ -252,7 +293,7 @@ function fillPinSelectors() {
             option.textContent = `GPIO ${pin}`;
             select.appendChild(option);
         });
-        select.value = "17";
+        select.value = "26";
     });
 }
 

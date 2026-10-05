@@ -20,7 +20,6 @@ typedef struct {
     int right_distance_remainder;
     int maneuver_distance_mm;
     int maneuver_angle_mrad;
-    int previous_heading_mrad;
     int turn_direction;
     int initialized;
 } aurabot_state_t;

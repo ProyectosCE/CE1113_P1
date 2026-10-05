@@ -96,6 +96,18 @@ int pinMode(int pin, const char *mode)
     if (gpio_path(pin, "direction", path, sizeof(path)) != 0) {
         return -1;
     }
+    /* Reescribir "out" pone la salida en bajo en sysfs. Conservar el nivel
+     * cuando el pin ya tiene la dirección solicitada evita pulsos en LED/PWM. */
+    int direction_fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (direction_fd >= 0) {
+        char current[8] = {0};
+        ssize_t count = read(direction_fd, current, sizeof(current) - 1);
+        close(direction_fd);
+        if (count > 0) {
+            current[strcspn(current, "\r\n")] = '\0';
+            if (strcmp(current, mode) == 0) return 0;
+        }
+    }
     char direction[8];
     snprintf(direction, sizeof(direction), "%s\n", mode);
     return write_text(path, direction);

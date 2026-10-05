@@ -8,11 +8,23 @@ set(AURABOT_RUNTIME_DIRECTORY_OVERRIDE "" CACHE STRING
 find_package(Threads REQUIRED)
 find_path(AURABOT_API_INCLUDE_DIR aurabot.h REQUIRED)
 
-set(AURABOT_SOURCES
-    src/main.c
+set(AURABOT_CORE_SOURCES
     src/fsm.c
     src/autonomous.c
+    src/control_lease.c
+    src/motion.c
+    src/odometry.c
+    src/state_outputs.c
+    src/audio_controller.c
+    src/robot_controller.c
+    src/angle_math.c
+    src/time_utils.c
     src/map.c
+)
+
+set(AURABOT_SOURCES
+    src/main.c
+    ${AURABOT_CORE_SOURCES}
     src/ipc_server.c
 )
 
@@ -61,13 +73,44 @@ endif()
 install(TARGETS aurabot DESTINATION bin)
 
 include(CTest)
+if(BUILD_TESTING AND NOT AURABOT_FAKE_HARDWARE)
+    # Probar el adaptador real con funciones GPIO instrumentadas, sin acceder
+    # al hardware del equipo que ejecuta CTest.
+    add_executable(test_partial_hardware
+        tests/test_partial_hardware.c src/hardware.c ${AURABOT_CORE_SOURCES})
+    target_include_directories(test_partial_hardware PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src ${AURABOT_API_INCLUDE_DIR}
+        ${PWM_INCLUDE_DIR} ${GPIO_INCLUDE_DIR} ${SENSORS_INCLUDE_DIR} ${LEDS_INCLUDE_DIR})
+    target_link_libraries(test_partial_hardware PRIVATE Threads::Threads)
+    target_compile_options(test_partial_hardware PRIVATE -Wall -Wextra -Werror)
+    target_compile_definitions(test_partial_hardware PRIVATE
+        AURABOT_LEFT_MOTOR_ENABLE=0 AURABOT_RIGHT_MOTOR_ENABLE=0
+        AURABOT_LEFT_ENCODER_ENABLE=0 AURABOT_RIGHT_ENCODER_ENABLE=0
+        AURABOT_LEFT_SENSOR_ENABLE=0 AURABOT_RIGHT_SENSOR_ENABLE=1
+        AURABOT_LED_POWER_ENABLE=1 AURABOT_LED_MANUAL_ENABLE=0
+        AURABOT_LED_AUTO_ENABLE=1 AURABOT_LED_OBSTACLE_ENABLE=1
+        AURABOT_AUDIO_ENABLE=0
+        AURABOT_LEFT_PWM_PIN=-1 AURABOT_LEFT_IN1_PIN=-1 AURABOT_LEFT_IN2_PIN=-1
+        AURABOT_RIGHT_PWM_PIN=-1 AURABOT_RIGHT_IN1_PIN=-1 AURABOT_RIGHT_IN2_PIN=-1
+        AURABOT_LEFT_ENCODER_PIN=-1 AURABOT_RIGHT_ENCODER_PIN=-1
+        AURABOT_LEFT_SENSOR_PIN=-1 AURABOT_RIGHT_SENSOR_PIN=24
+        AURABOT_LED_POWER_PIN=22 AURABOT_LED_MANUAL_PIN=-1
+        AURABOT_LED_AUTO_PIN=27 AURABOT_LED_OBSTACLE_PIN=17)
+    add_test(NAME aurabot_partial_hardware COMMAND test_partial_hardware)
+endif()
 if(BUILD_TESTING AND AURABOT_FAKE_HARDWARE)
+    add_executable(test_fsm tests/test_fsm.c src/fsm.c)
+    target_include_directories(test_fsm PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${AURABOT_API_INCLUDE_DIR}
+    )
+    target_compile_options(test_fsm PRIVATE -Wall -Wextra -Werror)
+    add_test(NAME aurabot_fsm_transitions COMMAND test_fsm)
+
     add_executable(test_core
         tests/test_core.c
         tests/fake_hardware.c
-        src/fsm.c
-        src/autonomous.c
-        src/map.c
+        ${AURABOT_CORE_SOURCES}
     )
     target_include_directories(test_core PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -78,7 +121,7 @@ if(BUILD_TESTING AND AURABOT_FAKE_HARDWARE)
     target_compile_options(test_core PRIVATE -Wall -Wextra -Werror)
     add_test(NAME aurabot_core_fsm COMMAND test_core)
 
-    add_executable(test_map tests/test_map.c src/map.c)
+    add_executable(test_map tests/test_map.c src/map.c src/angle_math.c)
     target_include_directories(test_map PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${AURABOT_API_INCLUDE_DIR}

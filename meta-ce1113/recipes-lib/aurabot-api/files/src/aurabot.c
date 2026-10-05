@@ -225,6 +225,23 @@ int aurabot_emergency_stop(void)
     return transact(AURABOT_CMD_EMERGENCY_STOP, NULL, 0, NULL, 0, NULL);
 }
 
+static int gpio_command(unsigned int command, int pin, int value, int duty,
+                         unsigned int size)
+{
+    unsigned char payload[12];
+    aurabot_wire_put_int(payload, pin);
+    aurabot_wire_put_int(payload + 4, value);
+    aurabot_wire_put_int(payload + 8, duty);
+    return transact(command, payload, size, NULL, 0, NULL);
+}
+
+int aurabot_digital_write(int pin, int value)
+{ return gpio_command(AURABOT_CMD_DIGITAL_WRITE, pin, value, 0, 8U); }
+int aurabot_pwm_set(int pin, int frequency, int duty)
+{ return gpio_command(AURABOT_CMD_PWM_SET, pin, frequency, duty, 12U); }
+int aurabot_pwm_stop(int pin)
+{ return gpio_command(AURABOT_CMD_PWM_STOP, pin, 0, 0, 4U); }
+
 int aurabot_get_map(unsigned char *cells, unsigned int capacity,
                     unsigned int *required_size)
 {

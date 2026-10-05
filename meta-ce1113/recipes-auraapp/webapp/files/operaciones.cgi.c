@@ -7,9 +7,9 @@
 #include <string.h>
 #include <unistd.h>
 #include "json_response.h"
+#include <aurabot.h>
 
 #define AUDIO_CONTROL_FIFO "/run/aurabot-audio/control"
-#define HARDWARE_CONTROL_FIFO "/run/aurabot/control"
 #define PLAYLIST_PATH "/media/audio/playlist.txt"
 
 static int send_command(const char *fifo, const char *command)
@@ -138,6 +138,39 @@ static int get_volume(const char *query, int *volume)
     return get_integer(query, "volume", 0, 100, volume);
 }
 
+static void robot_result(const char *operation, int result)
+{
+    aurabot_disconnect();
+    if (result == AURABOT_OK) json_text(operation, "Comando aplicado");
+    else if (result == AURABOT_ERR_WRONG_MODE)
+        json_error("Cambie a modo manual para probar GPIO");
+    else if (result == AURABOT_ERR_BUSY)
+        json_error("GPIO reservado para motores, sensores, encoders o LEDs de estado");
+    else if (result == AURABOT_ERR_UNAVAILABLE)
+        json_error("AuraBot no disponible en /run/aurabot/control.sock");
+    else if (result == AURABOT_ERR_INVALID_ARGUMENT)
+        json_error("Parametros GPIO no validos");
+    else if (result == AURABOT_ERR_HARDWARE)
+        json_error("Error al escribir el GPIO; revise el registro de AuraBot");
+    else json_error("Error de protocolo o permisos al conectar con AuraBot");
+}
+
+static void print_robot_status(void)
+{
+    aurabot_status_t status;
+    int result = aurabot_get_status(&status);
+    aurabot_disconnect();
+    if (result != AURABOT_OK) {
+        robot_result("robot-status", result);
+        return;
+    }
+    json_header();
+    printf("{\"ok\":true,\"operacion\":\"robot-status\",\"mode\":%d,"
+        "\"auto_state\":%d,\"motors\":[%d,%d],\"sensors\":[%d,%d]}\n",
+        status.mode, status.auto_state, status.left_speed, status.right_speed,
+        status.left_obstacle, status.right_obstacle);
+}
+
 int main(void)
 {
     char *query;
@@ -154,6 +187,22 @@ int main(void)
     }
 
     sscanf(query, "op=%31[^&]&a=%f&b=%f", op, &a, &b);
+
+    if (strcmp(op, "robot-status") == 0) {
+        print_robot_status();
+        return 0;
+    }
+    if (strcmp(op, "robot-mode") == 0) {
+        int mode;
+        if (get_integer(query, "mode", 1, 2, &mode) != 0)
+            json_error("Modo no valido");
+        else robot_result(op, aurabot_set_mode((aurabot_mode_t)mode));
+        return 0;
+    }
+    if (strcmp(op, "robot-emergency-stop") == 0) {
+        robot_result(op, aurabot_emergency_stop());
+        return 0;
+    }
 
     if (strcmp(op, "audio-devices") == 0) {
         print_audio_devices();
@@ -229,7 +278,6 @@ int main(void)
     }
 
     if (strcmp(op, "pwm-set") == 0 || strcmp(op, "pwm-stop") == 0) {
-        char command[64];
         int pin;
         if (get_integer(query, "pin", 0, 27, &pin) != 0) {
             json_error("PIN PWM no valido; use GPIO 0 a 27");
@@ -242,26 +290,19 @@ int main(void)
                 json_error("Frecuencia o ciclo de trabajo no valido");
                 return 0;
             }
-            snprintf(command, sizeof(command), "PWM %d %d %d", pin, frequency, duty);
-        } else snprintf(command, sizeof(command), "PWMSTOP %d", pin);
-        if (send_command(HARDWARE_CONTROL_FIFO, command) == 0)
-            json_text(op, "Comando PWM enviado");
-        else json_error("Servidor de hardware no disponible");
+            robot_result(op, aurabot_pwm_set(pin, frequency, duty));
+        } else robot_result(op, aurabot_pwm_stop(pin));
         return 0;
     }
 
     if (strcmp(op, "digital-write") == 0) {
-        char command[48];
         int pin, value;
         if (get_integer(query, "pin", 0, 27, &pin) != 0 ||
             get_integer(query, "value", 0, 1, &value) != 0) {
             json_error("PIN digital o estado no valido");
             return 0;
         }
-        snprintf(command, sizeof(command), "DIGITAL %d %d", pin, value);
-        if (send_command(HARDWARE_CONTROL_FIFO, command) == 0)
-            json_text("digital-write", value ? "PIN encendido" : "PIN apagado");
-        else json_error("Servidor de hardware no disponible");
+        robot_result(op, aurabot_digital_write(pin, value));
         return 0;
     }
 

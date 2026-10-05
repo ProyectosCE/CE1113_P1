@@ -28,11 +28,11 @@ static int require(int condition, const char *message)
 int main(void)
 {
     fake_gpio_reset();
-    if (require(setPWM(17, 100, 50) == 0, "setPWM rechazó un canal válido") ||
+    if (require(setPWM(26, 100, 50) == 0, "setPWM rechazó un canal válido") ||
         (sleep_ms(80), 0) ||
         require(fake_gpio_write_count(1) >= 4, "faltan transiciones altas") ||
         require(fake_gpio_write_count(0) >= 4, "faltan transiciones bajas") ||
-        require(stopPWM(17) == 0, "stopPWM falló") ||
+        require(stopPWM(26) == 0, "stopPWM falló") ||
         require(fake_gpio_current_level() == 0, "stopPWM no dejó la salida baja")) {
         return 1;
     }

@@ -1,36 +1,8 @@
 #include <string.h>
 
+#include "angle_math.h"
+#include "aurabot_config.h"
 #include "map.h"
-
-#define HALF_TURN_MRAD 3142
-#define FULL_TURN_MRAD 6283
-#define SENSOR_OFFSET_MRAD 785
-
-/* Seno y coseno escalados por 1000 para ángulos en pasos de 15 grados. */
-static const int cosine_table[24] = {
-    1000, 966, 866, 707, 500, 259, 0, -259, -500, -707, -866, -966,
-    -1000, -966, -866, -707, -500, -259, 0, 259, 500, 707, 866, 966
-};
-static const int sine_table[24] = {
-    0, 259, 500, 707, 866, 966, 1000, 966, 866, 707, 500, 259,
-    0, -259, -500, -707, -866, -966, -1000, -966, -866, -707, -500, -259
-};
-
-static int normalize_heading(int heading_mrad)
-{
-    while (heading_mrad > HALF_TURN_MRAD) heading_mrad -= FULL_TURN_MRAD;
-    while (heading_mrad <= -HALF_TURN_MRAD) heading_mrad += FULL_TURN_MRAD;
-    return heading_mrad;
-}
-
-static int direction_index(int heading_mrad)
-{
-    int normalized = normalize_heading(heading_mrad);
-    int index;
-    if (normalized < 0) normalized += FULL_TURN_MRAD;
-    index = (normalized + 131) / 262;
-    return index % 24;
-}
 
 static int coordinate_to_cell(int millimeters, int limit)
 {
@@ -56,13 +28,14 @@ static void set_cell(aurabot_map_t *map, int column, int row,
 static void set_obstacle(aurabot_map_t *map, int x_mm, int y_mm,
                          int heading_mrad)
 {
-    int direction = direction_index(heading_mrad);
     int column = coordinate_to_cell(x_mm, AURABOT_MAP_WIDTH);
     int row = coordinate_to_cell(y_mm, AURABOT_MAP_HEIGHT);
-    if (cosine_table[direction] > 100) ++column;
-    else if (cosine_table[direction] < -100) --column;
-    if (sine_table[direction] > 100) ++row;
-    else if (sine_table[direction] < -100) --row;
+    int cosine = angle_cosine_scaled(heading_mrad);
+    int sine = angle_sine_scaled(heading_mrad);
+    if (cosine > 100) ++column;
+    else if (cosine < -100) --column;
+    if (sine > 100) ++row;
+    else if (sine < -100) --row;
     set_cell(map, column, row, AURABOT_CELL_OBSTACLE);
 }
 
@@ -86,9 +59,11 @@ void map_update_pose(aurabot_map_t *map, int x_mm, int y_mm,
     row = coordinate_to_cell(y_mm, AURABOT_MAP_HEIGHT);
     set_cell(map, column, row, AURABOT_CELL_VISITED);
     if (left_obstacle)
-        set_obstacle(map, x_mm, y_mm, heading_mrad + SENSOR_OFFSET_MRAD);
+        set_obstacle(map, x_mm, y_mm,
+                     heading_mrad + AURABOT_SENSOR_OFFSET_MRAD);
     if (right_obstacle)
-        set_obstacle(map, x_mm, y_mm, heading_mrad - SENSOR_OFFSET_MRAD);
+        set_obstacle(map, x_mm, y_mm,
+                     heading_mrad - AURABOT_SENSOR_OFFSET_MRAD);
 }
 
 int map_copy(const aurabot_map_t *map, unsigned char *cells,

@@ -19,6 +19,7 @@ static struct timespec sample_started;
 static int left_tick_remainder;
 static int right_tick_remainder;
 static int audio_volume = 50;
+static int led_values[4];
 
 static long long elapsed_ms(const struct timespec *start,
                             const struct timespec *end)
@@ -51,6 +52,11 @@ int hardware_drive(int left_percent, int right_percent)
 }
 
 int hardware_stop(void) { left_speed = right_speed = 0; return 0; }
+int hardware_left_motor_enabled(void) { return 1; }
+int hardware_right_motor_enabled(void) { return 1; }
+int hardware_left_feedback_enabled(void) { return 1; }
+int hardware_right_feedback_enabled(void) { return 1; }
+int hardware_autonomous_available(void) { return 1; }
 
 int hardware_read_sensors(sensor_snapshot_t *result)
 {
@@ -101,12 +107,20 @@ int hardware_take_encoder_sample(encoder_snapshot_t *result)
 
 int hardware_set_leds(int power, int manual, int autonomous, int obstacle)
 {
-    (void)power; (void)manual; (void)autonomous; (void)obstacle;
+    led_values[0] = power;
+    led_values[1] = manual;
+    led_values[2] = autonomous;
+    led_values[3] = obstacle;
     return 0;
 }
 
 int hardware_audio_event(const char *event_name)
 { return event_name == NULL ? -1 : 0; }
+int hardware_test_gpio(int pin, int value, int duty, int pwm)
+{
+    (void)value; (void)duty; (void)pwm;
+    return pin == 26 ? 0 : -4;
+}
 int hardware_audio_play(unsigned int track_index)
 { return track_index < 4U ? 0 : -1; }
 int hardware_audio_pause(void) { return 0; }
@@ -150,4 +164,12 @@ void fake_hardware_get_motor_speeds(int *left, int *right)
 {
     if (left != NULL) *left = left_speed;
     if (right != NULL) *right = right_speed;
+}
+
+void fake_hardware_get_leds(int *power, int *manual, int *autonomous, int *obstacle)
+{
+    *power = led_values[0];
+    *manual = led_values[1];
+    *autonomous = led_values[2];
+    *obstacle = led_values[3];
 }

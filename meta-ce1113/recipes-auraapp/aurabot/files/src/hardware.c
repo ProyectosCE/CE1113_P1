@@ -10,12 +10,10 @@
 #include <libleds.h>
 #include <libpwm.h>
 #include <libsensors.h>
+#include <aurabot.h>
 
 #include "hardware.h"
 #include "hardware_config.h"
-
-#define AUDIO_CONTROL_FIFO "/run/aurabot-audio/control"
-#define PLAYLIST_PATH "/media/audio/playlist.txt"
 
 static pthread_t encoder_thread;
 static pthread_mutex_t encoder_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -38,13 +36,18 @@ static long long elapsed_ms(const struct timespec *start,
 
 static int all_pins_configured(void)
 {
-    return AURABOT_LEFT_PWM_PIN >= 0 && AURABOT_LEFT_IN1_PIN >= 0 &&
-        AURABOT_LEFT_IN2_PIN >= 0 && AURABOT_RIGHT_PWM_PIN >= 0 &&
-        AURABOT_RIGHT_IN1_PIN >= 0 && AURABOT_RIGHT_IN2_PIN >= 0 &&
-        AURABOT_LEFT_SENSOR_PIN >= 0 && AURABOT_RIGHT_SENSOR_PIN >= 0 &&
-        AURABOT_LEFT_ENCODER_PIN >= 0 && AURABOT_RIGHT_ENCODER_PIN >= 0 &&
-        AURABOT_LED_POWER_PIN >= 0 && AURABOT_LED_MANUAL_PIN >= 0 &&
-        AURABOT_LED_AUTO_PIN >= 0 && AURABOT_LED_OBSTACLE_PIN >= 0;
+    return (!AURABOT_LEFT_MOTOR_ENABLE || (AURABOT_LEFT_PWM_PIN >= 0 &&
+        AURABOT_LEFT_IN1_PIN >= 0 && AURABOT_LEFT_IN2_PIN >= 0)) &&
+        (!AURABOT_RIGHT_MOTOR_ENABLE || (AURABOT_RIGHT_PWM_PIN >= 0 &&
+        AURABOT_RIGHT_IN1_PIN >= 0 && AURABOT_RIGHT_IN2_PIN >= 0)) &&
+        (!AURABOT_LEFT_SENSOR_ENABLE || AURABOT_LEFT_SENSOR_PIN >= 0) &&
+        (!AURABOT_RIGHT_SENSOR_ENABLE || AURABOT_RIGHT_SENSOR_PIN >= 0) &&
+        (!AURABOT_LEFT_ENCODER_ENABLE || AURABOT_LEFT_ENCODER_PIN >= 0) &&
+        (!AURABOT_RIGHT_ENCODER_ENABLE || AURABOT_RIGHT_ENCODER_PIN >= 0) &&
+        (!AURABOT_LED_POWER_ENABLE || AURABOT_LED_POWER_PIN >= 0) &&
+        (!AURABOT_LED_MANUAL_ENABLE || AURABOT_LED_MANUAL_PIN >= 0) &&
+        (!AURABOT_LED_AUTO_ENABLE || AURABOT_LED_AUTO_PIN >= 0) &&
+        (!AURABOT_LED_OBSTACLE_ENABLE || AURABOT_LED_OBSTACLE_PIN >= 0);
 }
 
 static void *encoder_worker(void *unused)
@@ -54,12 +57,12 @@ static void *encoder_worker(void *unused)
     struct timespec delay = { .tv_sec = 0,
         .tv_nsec = AURABOT_ENCODER_POLL_US * 1000L };
     (void)unused;
-    previous_left = digitalRead(AURABOT_LEFT_ENCODER_PIN);
-    previous_right = digitalRead(AURABOT_RIGHT_ENCODER_PIN);
+    previous_left = AURABOT_LEFT_ENCODER_ENABLE ? digitalRead(AURABOT_LEFT_ENCODER_PIN) : 0;
+    previous_right = AURABOT_RIGHT_ENCODER_ENABLE ? digitalRead(AURABOT_RIGHT_ENCODER_PIN) : 0;
     for (;;) {
         int keep_running;
-        int current_left = digitalRead(AURABOT_LEFT_ENCODER_PIN);
-        int current_right = digitalRead(AURABOT_RIGHT_ENCODER_PIN);
+        int current_left = AURABOT_LEFT_ENCODER_ENABLE ? digitalRead(AURABOT_LEFT_ENCODER_PIN) : 0;
+        int current_right = AURABOT_RIGHT_ENCODER_ENABLE ? digitalRead(AURABOT_RIGHT_ENCODER_PIN) : 0;
         pthread_mutex_lock(&encoder_lock);
         keep_running = encoder_running;
         if (current_left == 1 && previous_left == 0) ++left_ticks;
@@ -102,16 +105,17 @@ int hardware_init(void)
         fprintf(stderr, "aurabot: configure los pines en hardware_config.h\n");
         return -1;
     }
-    if (pinMode(AURABOT_LEFT_SENSOR_PIN, "in") != 0 ||
-        pinMode(AURABOT_RIGHT_SENSOR_PIN, "in") != 0 ||
-        pinMode(AURABOT_LEFT_ENCODER_PIN, "in") != 0 ||
-        pinMode(AURABOT_RIGHT_ENCODER_PIN, "in") != 0)
+    if ((AURABOT_LEFT_SENSOR_ENABLE && pinMode(AURABOT_LEFT_SENSOR_PIN, "in") != 0) ||
+        (AURABOT_RIGHT_SENSOR_ENABLE && pinMode(AURABOT_RIGHT_SENSOR_PIN, "in") != 0) ||
+        (AURABOT_LEFT_ENCODER_ENABLE && pinMode(AURABOT_LEFT_ENCODER_PIN, "in") != 0) ||
+        (AURABOT_RIGHT_ENCODER_ENABLE && pinMode(AURABOT_RIGHT_ENCODER_PIN, "in") != 0))
         return -1;
     if (hardware_stop() != 0 || hardware_set_leds(0, 0, 0, 0) != 0)
         return -1;
     left_ticks = right_ticks = 0U;
     left_direction = right_direction = 0;
     clock_gettime(CLOCK_MONOTONIC, &sample_started);
+    if (!AURABOT_LEFT_ENCODER_ENABLE && !AURABOT_RIGHT_ENCODER_ENABLE) return 0;
     encoder_running = 1;
     result = pthread_create(&encoder_thread, NULL, encoder_worker, NULL);
     if (result != 0) {
@@ -142,13 +146,15 @@ int hardware_drive(int left_percent, int right_percent)
         errno = EINVAL;
         return -1;
     }
-    if (set_motor(AURABOT_LEFT_PWM_PIN, AURABOT_LEFT_IN1_PIN,
-                  AURABOT_LEFT_IN2_PIN, left_percent) != 0 ||
-        set_motor(AURABOT_RIGHT_PWM_PIN, AURABOT_RIGHT_IN1_PIN,
-                  AURABOT_RIGHT_IN2_PIN, right_percent) != 0) {
+    if ((AURABOT_LEFT_MOTOR_ENABLE && set_motor(AURABOT_LEFT_PWM_PIN, AURABOT_LEFT_IN1_PIN,
+                  AURABOT_LEFT_IN2_PIN, left_percent) != 0) ||
+        (AURABOT_RIGHT_MOTOR_ENABLE && set_motor(AURABOT_RIGHT_PWM_PIN, AURABOT_RIGHT_IN1_PIN,
+                  AURABOT_RIGHT_IN2_PIN, right_percent) != 0)) {
         (void)hardware_stop();
         return -1;
     }
+    if (!AURABOT_LEFT_MOTOR_ENABLE) left_percent = 0;
+    if (!AURABOT_RIGHT_MOTOR_ENABLE) right_percent = 0;
     new_left_direction = left_percent > 0 ? 1 : left_percent < 0 ? -1 : 0;
     new_right_direction = right_percent > 0 ? 1 : right_percent < 0 ? -1 : 0;
     pthread_mutex_lock(&encoder_lock);
@@ -163,15 +169,15 @@ int hardware_drive(int left_percent, int right_percent)
 int hardware_stop(void)
 {
     int result = 0;
-    if (AURABOT_LEFT_PWM_PIN >= 0 && stopPWM(AURABOT_LEFT_PWM_PIN) != 0)
+    if (AURABOT_LEFT_MOTOR_ENABLE && stopPWM(AURABOT_LEFT_PWM_PIN) != 0)
         result = -1;
-    if (AURABOT_RIGHT_PWM_PIN >= 0 && stopPWM(AURABOT_RIGHT_PWM_PIN) != 0)
+    if (AURABOT_RIGHT_MOTOR_ENABLE && stopPWM(AURABOT_RIGHT_PWM_PIN) != 0)
         result = -1;
-    if (AURABOT_LEFT_IN1_PIN >= 0 &&
+    if (AURABOT_LEFT_MOTOR_ENABLE &&
         configure_motor_direction(AURABOT_LEFT_IN1_PIN,
                                   AURABOT_LEFT_IN2_PIN, 0) != 0)
         result = -1;
-    if (AURABOT_RIGHT_IN1_PIN >= 0 &&
+    if (AURABOT_RIGHT_MOTOR_ENABLE &&
         configure_motor_direction(AURABOT_RIGHT_IN1_PIN,
                                   AURABOT_RIGHT_IN2_PIN, 0) != 0)
         result = -1;
@@ -187,10 +193,10 @@ int hardware_read_sensors(sensor_snapshot_t *result)
     int left;
     int right;
     if (result == NULL) { errno = EINVAL; return -1; }
-    left = sensorReadDigital(AURABOT_LEFT_SENSOR_PIN,
-                             AURABOT_SENSOR_ACTIVE_LOW);
-    right = sensorReadDigital(AURABOT_RIGHT_SENSOR_PIN,
-                              AURABOT_SENSOR_ACTIVE_LOW);
+    left = AURABOT_LEFT_SENSOR_ENABLE ? sensorReadDigital(AURABOT_LEFT_SENSOR_PIN,
+                             AURABOT_SENSOR_ACTIVE_LOW) : 0;
+    right = AURABOT_RIGHT_SENSOR_ENABLE ? sensorReadDigital(AURABOT_RIGHT_SENSOR_PIN,
+                              AURABOT_SENSOR_ACTIVE_LOW) : 0;
     if (left < 0 || right < 0) return -1;
     result->left_obstacle = left;
     result->right_obstacle = right;
@@ -213,23 +219,64 @@ int hardware_take_encoder_sample(encoder_snapshot_t *result)
     sample_started = now;
     pthread_mutex_unlock(&encoder_lock);
     result->sample_time_ms = (int)sample_ms;
-    result->left_angular_velocity_mrad_s = (int)(
-        6283185LL * result->left_ticks /
+    result->left_angular_velocity_mrad_s = !AURABOT_LEFT_ENCODER_ENABLE ? 0 : (int)(
+        AURABOT_FULL_TURN_MICRORAD * result->left_ticks /
         (AURABOT_LEFT_TICKS_PER_REVOLUTION * sample_ms));
-    result->right_angular_velocity_mrad_s = (int)(
-        6283185LL * result->right_ticks /
+    result->right_angular_velocity_mrad_s = !AURABOT_RIGHT_ENCODER_ENABLE ? 0 : (int)(
+        AURABOT_FULL_TURN_MICRORAD * result->right_ticks /
         (AURABOT_RIGHT_TICKS_PER_REVOLUTION * sample_ms));
     return 0;
 }
 
 int hardware_set_leds(int power, int manual, int autonomous, int obstacle)
 {
-    if (ledSet(AURABOT_LED_POWER_PIN, AURABOT_LED_ACTIVE_HIGH, power) != 0 ||
-        ledSet(AURABOT_LED_MANUAL_PIN, AURABOT_LED_ACTIVE_HIGH, manual) != 0 ||
-        ledSet(AURABOT_LED_AUTO_PIN, AURABOT_LED_ACTIVE_HIGH, autonomous) != 0 ||
-        ledSet(AURABOT_LED_OBSTACLE_PIN, AURABOT_LED_ACTIVE_HIGH, obstacle) != 0)
-        return -1;
-    return 0;
+    const int pins[] = { AURABOT_LED_POWER_PIN, AURABOT_LED_MANUAL_PIN,
+        AURABOT_LED_AUTO_PIN, AURABOT_LED_OBSTACLE_PIN };
+    const int values[] = { power, manual, autonomous, obstacle };
+    const int enabled[] = { AURABOT_LED_POWER_ENABLE, AURABOT_LED_MANUAL_ENABLE,
+        AURABOT_LED_AUTO_ENABLE, AURABOT_LED_OBSTACLE_ENABLE };
+    static unsigned int reported_errors;
+    unsigned int index;
+    int result = 0;
+    for (index = 0; index < 4U; ++index) {
+        if (!enabled[index]) continue;
+        if (ledSet(pins[index], AURABOT_LED_ACTIVE_HIGH, values[index]) != 0) {
+            if (!(reported_errors & (1U << index)))
+                fprintf(stderr, "aurabot: LED GPIO %d: %s\n", pins[index], strerror(errno));
+            reported_errors |= 1U << index;
+            result = -1;
+        } else reported_errors &= ~(1U << index);
+    }
+    return result;
+}
+
+int hardware_test_gpio(int pin, int value, int duty, int pwm)
+{
+    const int reserved[] = {
+        AURABOT_LEFT_PWM_PIN, AURABOT_LEFT_IN1_PIN, AURABOT_LEFT_IN2_PIN,
+        AURABOT_RIGHT_PWM_PIN, AURABOT_RIGHT_IN1_PIN, AURABOT_RIGHT_IN2_PIN,
+        AURABOT_LEFT_SENSOR_PIN, AURABOT_RIGHT_SENSOR_PIN,
+        AURABOT_LEFT_ENCODER_PIN, AURABOT_RIGHT_ENCODER_PIN,
+        AURABOT_LED_POWER_PIN, AURABOT_LED_MANUAL_PIN,
+        AURABOT_LED_AUTO_PIN, AURABOT_LED_OBSTACLE_PIN
+    };
+    unsigned int index;
+    int result;
+    if (pin < 4 || pin > 27 ||
+        (pwm == 0 && (value < 0 || value > 1)) ||
+        (pwm == 1 && (value < 1 || value > 10000 || duty < 0 || duty > 100)))
+        return AURABOT_ERR_INVALID_ARGUMENT;
+    for (index = 0; index < sizeof(reserved) / sizeof(reserved[0]); ++index)
+        if (pin == reserved[index]) return AURABOT_ERR_BUSY;
+    if (pwm == 1) result = setPWM(pin, value, duty);
+    else {
+        result = stopPWM(pin);
+        if (result == 0 && pwm == 0) {
+            result = pinMode(pin, "out");
+            if (result == 0) result = digitalWrite(pin, value);
+        }
+    }
+    return result == 0 ? AURABOT_OK : AURABOT_ERR_HARDWARE;
 }
 
 static int send_audio_command(const char *command)
@@ -238,7 +285,9 @@ static int send_audio_command(const char *command)
     unsigned int length;
     int result = 0;
     if (command == NULL) { errno = EINVAL; return -1; }
-    descriptor = open(AUDIO_CONTROL_FIFO, O_WRONLY | O_NONBLOCK | O_CLOEXEC);
+    if (!AURABOT_AUDIO_ENABLE) { errno = ENODEV; return -1; }
+    descriptor = open(AURABOT_AUDIO_CONTROL_FIFO,
+                      O_WRONLY | O_NONBLOCK | O_CLOEXEC);
     if (descriptor < 0) return -1;
     length = (unsigned int)strlen(command);
     if (write(descriptor, command, length) != (int)length ||
@@ -279,7 +328,8 @@ int hardware_audio_set_volume(int volume_percent)
 
 unsigned int hardware_audio_track_count(void)
 {
-    FILE *playlist = fopen(PLAYLIST_PATH, "r");
+    if (!AURABOT_AUDIO_ENABLE) return 0U;
+    FILE *playlist = fopen(AURABOT_PLAYLIST_PATH, "r");
     char line[512];
     unsigned int count = 0U;
     if (playlist == NULL) return 0U;
@@ -298,7 +348,8 @@ int hardware_audio_track_name(unsigned int track_index, char *name,
     const char *base;
     unsigned int length;
     if (name == NULL || capacity == 0U) { errno = EINVAL; return -1; }
-    playlist = fopen(PLAYLIST_PATH, "r");
+    if (!AURABOT_AUDIO_ENABLE) { errno = ENODEV; return -1; }
+    playlist = fopen(AURABOT_PLAYLIST_PATH, "r");
     if (playlist == NULL) return -1;
     while (fgets(line, sizeof(line), playlist) != NULL) {
         line[strcspn(line, "\r\n")] = '\0';
@@ -327,3 +378,15 @@ unsigned int hardware_right_wheel_circumference_mm(void)
 { return AURABOT_RIGHT_WHEEL_CIRCUMFERENCE_MM; }
 unsigned int hardware_wheel_base_mm(void)
 { return AURABOT_WHEEL_BASE_MM; }
+
+int hardware_left_motor_enabled(void) { return !!AURABOT_LEFT_MOTOR_ENABLE; }
+int hardware_right_motor_enabled(void) { return !!AURABOT_RIGHT_MOTOR_ENABLE; }
+int hardware_left_feedback_enabled(void)
+{ return AURABOT_LEFT_MOTOR_ENABLE && AURABOT_LEFT_ENCODER_ENABLE; }
+int hardware_right_feedback_enabled(void)
+{ return AURABOT_RIGHT_MOTOR_ENABLE && AURABOT_RIGHT_ENCODER_ENABLE; }
+int hardware_autonomous_available(void)
+{
+    return hardware_left_feedback_enabled() && hardware_right_feedback_enabled() &&
+        (AURABOT_LEFT_SENSOR_ENABLE || AURABOT_RIGHT_SENSOR_ENABLE);
+}
