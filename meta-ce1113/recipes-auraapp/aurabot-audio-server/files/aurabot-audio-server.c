@@ -133,17 +133,17 @@ int main(void)
     signal(SIGINT, request_shutdown);
     signal(SIGTERM, request_shutdown);
 
-    if (mkdir(CONTROL_DIRECTORY, 0755) != 0 && errno != EEXIST) {
+    if (mkdir(CONTROL_DIRECTORY, 0750) != 0 && errno != EEXIST) {
         perror("mkdir control audio");
         return 1;
     }
 
     unlink(CONTROL_FIFO);
-    if (mkfifo(CONTROL_FIFO, 0666) != 0) {
+    if (mkfifo(CONTROL_FIFO, 0660) != 0) {
         perror("mkfifo control audio");
         return 1;
     }
-    if (chmod(CONTROL_FIFO, 0666) != 0) {
+    if (chmod(CONTROL_FIFO, 0660) != 0) {
         perror("chmod control audio");
         unlink(CONTROL_FIFO);
         return 1;

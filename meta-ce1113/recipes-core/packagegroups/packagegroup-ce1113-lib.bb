@@ -7,4 +7,4 @@ inherit packagegroup
 # allarch porque esa resolución depende de la arquitectura de destino.
 PACKAGE_ARCH = "${TUNE_PKGARCH}"
 
-RDEPENDS:${PN} = "libgpio pwm audio leds sensors"
+RDEPENDS:${PN} = "libgpio pwm audio leds sensors aurabot-api"
