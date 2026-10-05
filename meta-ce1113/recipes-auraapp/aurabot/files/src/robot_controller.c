@@ -113,6 +113,10 @@ int robot_controller_tick(aurabot_state_t *state)
     }
     state->public_status.left_obstacle = sensors.left_obstacle;
     state->public_status.right_obstacle = sensors.right_obstacle;
+    state->public_status.left_motor_movement = encoders.left_movement;
+    state->public_status.right_motor_movement = encoders.right_movement;
+    state->public_status.left_motor_direction = encoders.left_direction;
+    state->public_status.right_motor_direction = encoders.right_direction;
     odometry_config = read_odometry_config();
     if (odometry_update(state, &encoders, &odometry_config) != AURABOT_OK)
         return enter_safe_stop(state);

@@ -236,3 +236,19 @@ button.danger {
         grid-template-columns: 1fr;
     }
 }
+
+input[role="switch"] { width: auto; margin-right: 8px; accent-color: #2563eb; }
+button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.telemetry { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.telemetry dt { color: #64748b; }
+.telemetry dd { margin: 0; font-weight: 600; }
+.manual-speed { margin-top: 20px; }
+.drive-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
+.drive-pad button { touch-action: none; user-select: none; }
+.drive-pad .pressed { background: #0f172a; }
+.drive-forward { grid-area: 1 / 2; }
+.drive-left { grid-area: 2 / 1; }
+.drive-stop { grid-area: 2 / 2; }
+.drive-right { grid-area: 2 / 3; }
+.drive-reverse { grid-area: 3 / 2; }
+#robot-map { display: block; width: min(100%, 400px); height: auto; border: 1px solid #cbd5e1; }

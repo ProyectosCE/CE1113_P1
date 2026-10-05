@@ -26,7 +26,7 @@
 #endif
 /* Habilita el muestreo del encoder Hall derecho. */
 #ifndef AURABOT_RIGHT_ENCODER_ENABLE
-#define AURABOT_RIGHT_ENCODER_ENABLE 0
+#define AURABOT_RIGHT_ENCODER_ENABLE 1
 #endif
 /* Habilita el LED de servicio, GPIO BCM 22. */
 #ifndef AURABOT_LED_POWER_ENABLE
@@ -87,7 +87,7 @@
 #endif
 /* Pin BCM del encoder Hall derecho; -1 indica no configurado. */
 #ifndef AURABOT_RIGHT_ENCODER_PIN
-#define AURABOT_RIGHT_ENCODER_PIN (6)
+#define AURABOT_RIGHT_ENCODER_PIN (25) //6
 #endif
 /* Pin BCM del LED que indica alimentación/servicio activo. */
 #ifndef AURABOT_LED_POWER_PIN
@@ -114,6 +114,8 @@
 #define AURABOT_PWM_FREQUENCY_HZ 100
 /* Intervalo de lectura de los encoders Hall, en microsegundos. */
 #define AURABOT_ENCODER_POLL_US 1000
+/* Tiempo sin flancos tras el cual el encoder se considera quieto. */
+#define AURABOT_ENCODER_MOVEMENT_TIMEOUT_MS 50
 /* Ticks medidos por vuelta del motor izquierdo; valor calibrable. */
 #define AURABOT_LEFT_TICKS_PER_REVOLUTION 35U
 /* Ticks medidos por vuelta del motor derecho; valor calibrable. */

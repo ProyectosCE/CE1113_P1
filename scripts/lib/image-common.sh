@@ -48,7 +48,7 @@ ce1113_required_packages() {
     printf '%s\n' \
         packagegroup-ce1113 packagegroup-ce1113-lib packagegroup-ce1113-test \
         packagegroup-ce1113-hw packagegroup-ce1113-auraapp \
-        libgpio1 libpwm1 libaudio1 libleds1 libsensors1 aurabot aurabot-audio-server \
+        libgpio1 libpwm1 libaudio1 libleds1 libsensors1 aurabot-api aurabot aurabot-audio-server \
         app-operaciones webapp audio-storage ce1113-audio-config \
         packagegroup-base-alsa alsa-utils-amixer mpg123 wifi-config
 }

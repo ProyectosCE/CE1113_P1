@@ -72,3 +72,32 @@ preserva si es la partición 3, ext4 y tiene la etiqueta exacta `AURA_AUDIO`.
 
 Las canciones nunca forman parte del WIC. Después de flashear se cargan sin
 recompilar mediante `./load_audio.sh --source ./media`.
+
+## Si falla la lectura después de grabar
+
+No vuelva a escribir repetidamente la SD. Con la SD desmontada, puede comparar
+sus primeros bytes con el WIC de la imagen actual sin modificar sus particiones:
+
+```bash
+./flash_sd.sh --device /dev/mmcblk0 --verify-only
+./flash_sd.sh --device /dev/mmcblk0 --verify-only --direct-read
+```
+
+La segunda variante usa E/S directa para evitar la caché y lectura anticipada.
+Si aparece `Invalid argument`, el lector podría no soportar este modo; no se
+reintenta ni se cambia de modo automáticamente. Ambas verificaciones comparan
+el SHA-256 de exactamente el tamaño del WIC usando bloques de 4 MiB, incluido un
+último bloque parcial. Se rechazan errores de E/S, lecturas cortas y hashes distintos.
+
+`--verify-only` no desmonta, graba, formatea ni restaura `AURA_AUDIO`. Una
+comparación correcta no equivale a un flasheo completo: si un intento anterior
+falló antes de restaurar p3, todavía falta esa etapa. Si fallan ambas lecturas,
+pruebe otro lector/adaptador o tarjeta; no se pueden corregir sectores ilegibles
+ignorando los errores del dispositivo. Los audios pueden seguir presentes aunque
+falte p3: no formatee esa zona.
+
+Las pruebas del lector usan archivos temporales y errores simulados, sin SD:
+
+```bash
+bash scripts/test-flash-readback.sh
+```

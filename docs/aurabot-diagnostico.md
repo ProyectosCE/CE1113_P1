@@ -48,7 +48,12 @@ tail -f /var/log/aurabot.log
 
 `mode=1` es autónomo, `mode=2` manual y `mode=3` parada segura. `sensors=L,R`
 contiene detecciones ya interpretadas: 1 significa obstáculo. Consultar estado
-no cambia el modo ni las salidas. Los LED usan numeración BCM:
+no cambia el modo ni las salidas. `motor_movement=L,R` usa 1 cuando hubo pulsos
+del encoder durante los últimos 50 ms y 0 cuando está quieto. El campo
+`movement_state=L,R` presenta esos valores como `AVANZANDO`, `QUIETO` o
+`DESHABILITADO`. `motor_direction=L,R` informa por separado la orden aplicada (-1
+reversa, 0 detenido, 1 avance). Un encoder de un solo canal no determina por sí
+mismo la dirección. Los LED usan numeración BCM:
 
 | GPIO | Indicación |
 | --- | --- |
@@ -83,9 +88,12 @@ o reemplazando el socket del primero.
 
 ## Web
 
-El interruptor consulta el estado real cada segundo. Activado selecciona
+La web consulta el estado real 40 ms después de cada respuesta. Activado selecciona
 autónomo; desactivado selecciona manual y detiene los motores. Hay un botón
 separado de parada de emergencia.
+
+El control manual requiere pulsar «Tomar control» y mantener pulsada una dirección.
+Consultar `docs/web-control.md` para el contrato, la concesión y las pruebas.
 
 GPIO digital y PWM usan libaurabot y control.sock. Probar GPIO 26 en manual.
 Los pines de motores, sensores, encoders y LED están reservados. No se pueden

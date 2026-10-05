@@ -4,15 +4,22 @@ set -euo pipefail
 PROJECT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 POKY_DIR=${POKY_DIR:-"$HOME/poky-scarthgap-5.0.19"}
 BUILD_DIR=""; TARGET_DEVICE=""; ASSUME_YES=0
+VERIFY_ONLY=0; DIRECT_READ=0
 # shellcheck source=scripts/lib/image-common.sh
 source "$PROJECT_DIR/scripts/lib/image-common.sh"
+# shellcheck source=scripts/lib/flash-common.sh
+source "$PROJECT_DIR/scripts/lib/flash-common.sh"
 
 usage() {
     cat <<'EOF'
 Uso: ./flash_sd.sh [--build-dir DIR] [--device /dev/sdX] [--yes]
+                     [--verify-only] [--direct-read]
 
 Verifica ce1113-p1 y graba su WIC en una SD removible. Sin --device usa GUI.
 --yes omite la confirmación, pero nunca las comprobaciones de seguridad.
+--verify-only compara el WIC con la SD sin escribir ni restaurar particiones.
+              Requiere que la SD esté desmontada.
+--direct-read verifica con E/S directa, evitando la caché y lectura anticipada.
 EOF
 }
 
@@ -21,6 +28,8 @@ while (($#)); do
         -b|--build-dir) BUILD_DIR=${2:?falta el directorio}; shift 2 ;;
         -d|--device) TARGET_DEVICE=${2:?falta el dispositivo}; shift 2 ;;
         -y|--yes) ASSUME_YES=1; shift ;;
+        --verify-only) VERIFY_ONLY=1; shift ;;
+        --direct-read) DIRECT_READ=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) printf 'Opción desconocida: %s\n' "$1" >&2; usage >&2; exit 2 ;;
     esac
@@ -47,18 +56,8 @@ done
 }
 
 FLASH_STAGE="preparación"
-flash_failed() {
-    local result=$?
-    trap - ERR
-    printf '\nError durante: %s (código %s).\n' "$FLASH_STAGE" "$result" >&2
-    echo 'La SD no se ha declarado verificada. No se reintentará su escritura automáticamente.' >&2
-    if [[ -n "${TARGET_DEVICE:-}" ]]; then
-        printf 'Para revisar errores del lector/tarjeta: sudo dmesg | tail -60\n' >&2
-    fi
-    exit "$result"
-}
 set -E
-trap flash_failed ERR
+trap 'ce1113_flash_failed "$?"' ERR
 
 settle_udev() {
     if command -v udevadm >/dev/null; then
@@ -169,7 +168,7 @@ if [[ -z "$TARGET_DEVICE" ]]; then
         exit 1
     }
     TARGET_DEVICE=$(whiptail --title 'Grabar CE1113 en SD' --menu \
-        'Seleccione el disco completo que será borrado:' 18 84 8 \
+        "$([[ $VERIFY_ONLY == 1 ]] && echo 'Seleccione el disco para verificar sin escribir:' || echo 'Seleccione el disco completo que será borrado:')" 18 84 8 \
         "${DEVICE_OPTIONS[@]}" 3>&1 1>&2 2>&3) || exit 0
 fi
 
@@ -191,6 +190,33 @@ LOGICAL_SECTOR_BYTES=$(lsblk -brdno LOG-SEC "$TARGET_DEVICE")
     echo "Error: tamaño de sector lógico detectado: '$LOGICAL_SECTOR_BYTES'; se requieren 512 bytes." >&2
     exit 1
 }
+IMAGE_BYTES=$(image_size_bytes "$IMAGE_FILE")
+if ((IMAGE_BYTES == 0 || IMAGE_BYTES % SECTOR_BYTES != 0)); then
+    echo 'Error: el WIC debe ser no vacío y estar alineado a sectores de 512 bytes.' >&2
+    exit 1
+fi
+if ((IMAGE_BYTES > DISK_BYTES)); then
+    echo 'Error: el WIC excede el tamaño del dispositivo.' >&2
+    exit 1
+fi
+if ((VERIFY_ONLY)); then
+    # Ruta de diagnóstico: no desmonta, escribe, formatea ni modifica la tabla.
+    mapfile -t READBACK_DEVICES < <(lsblk -lnpo PATH "$TARGET_DEVICE")
+    for device in "${READBACK_DEVICES[@]}"; do
+        if findmnt -rn -S "$device" >/dev/null; then
+            echo "Error: $device está montado; desmóntelo antes de verificar." >&2
+            exit 1
+        fi
+    done
+    sudo -v
+    EXPECTED_RAW_HASH=$(image_raw_sha256 "$IMAGE_FILE")
+    if ce1113_verify_readback; then
+        echo 'Solo verificación: no se escribió la SD ni se restauró AURA_AUDIO.'
+        exit 0
+    else
+        ce1113_flash_failed "$?"
+    fi
+fi
 DISK_SECTORS=$((DISK_BYTES / SECTOR_BYTES))
 AUDIO_START=$(( (DISK_SECTORS - AUDIO_SIZE_SECTORS) / 2048 * 2048 ))
 AUDIO_SECTORS=$AUDIO_SIZE_SECTORS
@@ -206,11 +232,6 @@ while read -r path part_number start size_bytes label filesystem; do
     fi
 done < <(lsblk -brnpo PATH,PARTN,START,SIZE,LABEL,FSTYPE "$TARGET_DEVICE" | tail -n +2)
 
-IMAGE_BYTES=$(image_size_bytes "$IMAGE_FILE")
-if ((IMAGE_BYTES == 0 || IMAGE_BYTES % SECTOR_BYTES != 0)); then
-    echo 'Error: el WIC debe ser no vacío y estar alineado a sectores de 512 bytes.' >&2
-    exit 1
-fi
 IMAGE_SECTORS=$(( (IMAGE_BYTES + SECTOR_BYTES - 1) / SECTOR_BYTES ))
 if ((AUDIO_START <= IMAGE_SECTORS + 2048)); then
     echo "Error: el WIC ($IMAGE_BYTES bytes) invade la partición musical reservada." >&2
@@ -291,18 +312,11 @@ sudo sync "$TARGET_DEVICE"
 # Verificar antes de notificar cambios de particiones a udev: la relectura puede
 # disparar el automontaje y modificar el filesystem mientras se calcula el hash.
 # Vaciar la caché obliga a leer el dispositivo, no solo los datos recién escritos.
-FLASH_STAGE="lectura de verificación"
-echo "Verificando por lectura $IMAGE_BYTES bytes de $TARGET_DEVICE..."
-sudo blockdev --flushbufs "$TARGET_DEVICE"
-WRITTEN_RAW_HASH=$(sudo "$DD_TOOL" if="$TARGET_DEVICE" bs=512 \
-    iflag=fullblock count="$IMAGE_SECTORS" status=progress | sha256sum | awk '{print $1}')
-if [[ "$WRITTEN_RAW_HASH" != "$EXPECTED_RAW_HASH" ]]; then
-    echo 'Error: la verificación de lectura posterior a la grabación falló.' >&2
-    echo "Esperado: $EXPECTED_RAW_HASH" >&2
-    echo "Leído:    $WRITTEN_RAW_HASH" >&2
-    exit 1
+if ce1113_verify_readback; then
+    echo 'WIC escrito y verificado correctamente.'
+else
+    ce1113_flash_failed "$?"
 fi
-echo 'WIC escrito y verificado correctamente.'
 
 # Antes de tocar la tabla que dejó el WIC, se relee del dispositivo exactamente
 # la cantidad grabada. Esto detecta una escritura incompleta o dirigida al medio

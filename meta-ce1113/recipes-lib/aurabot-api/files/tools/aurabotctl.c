@@ -14,15 +14,32 @@ static int print_error(int result)
     return EXIT_FAILURE;
 }
 
+static const char *movement_state(int enabled, int moving)
+{
+    if (!enabled) return "DESHABILITADO";
+    return moving ? "AVANZANDO" : "QUIETO";
+}
+
 static int show_status(void)
 {
     aurabot_status_t status;
+    aurabot_capabilities_t capabilities;
     int result = aurabot_get_status(&status);
+    if (result == AURABOT_OK)
+        result = aurabot_get_capabilities(&capabilities);
     if (result != AURABOT_OK) return print_error(result);
-    printf("mode=%d auto=%d motors=%d,%d sensors=%d,%d "
+    printf("mode=%d auto=%d motors=%d,%d motor_movement=%d,%d "
+           "movement_state=%s,%s motor_direction=%d,%d sensors=%d,%d "
            "pose=%d,%d,%d owner=%d map=%u audio=%d volume=%d track=%d\n",
            status.mode, status.auto_state, status.left_speed,
-           status.right_speed, status.left_obstacle, status.right_obstacle,
+           status.right_speed,
+           status.left_motor_movement, status.right_motor_movement,
+           movement_state(capabilities.left_encoder,
+                          status.left_motor_movement),
+           movement_state(capabilities.right_encoder,
+                          status.right_motor_movement),
+           status.left_motor_direction, status.right_motor_direction,
+           status.left_obstacle, status.right_obstacle,
            status.x_mm, status.y_mm, status.heading_mrad,
            status.manual_control_busy, status.map_revision,
            status.audio_state, status.audio_volume_percent,

@@ -6,6 +6,7 @@
 #define AURABOT_MAP_HEIGHT 40
 #define AURABOT_MAP_CELLS (AURABOT_MAP_WIDTH * AURABOT_MAP_HEIGHT)
 #define AURABOT_TRACK_NAME_SIZE 128
+#define AURABOT_CONTROL_LEASE_MS 3000
 
 typedef enum {
     AURABOT_MODE_INIT = 0,
@@ -50,6 +51,11 @@ typedef struct {
     aurabot_auto_state_t auto_state;
     int left_speed;
     int right_speed;
+    /* 1 indica pulsos recientes del encoder; 0 indica que está quieto. */
+    int left_motor_movement;
+    int right_motor_movement;
+    int left_motor_direction;
+    int right_motor_direction;
     int left_obstacle;
     int right_obstacle;
     int x_mm;
@@ -62,11 +68,29 @@ typedef struct {
     int audio_track_index;
 } aurabot_status_t;
 
+typedef struct {
+    unsigned int revision;
+    unsigned char cells[AURABOT_MAP_CELLS];
+} aurabot_map_snapshot_t;
+
+typedef struct {
+    int left_motor;
+    int right_motor;
+    int left_encoder;
+    int right_encoder;
+    int left_sensor;
+    int right_sensor;
+    int audio;
+} aurabot_capabilities_t;
+
 int aurabot_connect(void);
 void aurabot_disconnect(void);
 
 int aurabot_get_status(aurabot_status_t *status);
+int aurabot_get_capabilities(aurabot_capabilities_t *capabilities);
 int aurabot_set_mode(aurabot_mode_t mode);
+int aurabot_set_mode_controlled(aurabot_mode_t mode,
+    const unsigned char owner_token[AURABOT_OWNER_TOKEN_SIZE]);
 
 int aurabot_claim_control(const unsigned char owner_token[AURABOT_OWNER_TOKEN_SIZE]);
 int aurabot_control_heartbeat(const unsigned char owner_token[AURABOT_OWNER_TOKEN_SIZE]);
@@ -82,11 +106,13 @@ int aurabot_pwm_stop(int pin);
 
 int aurabot_get_map(unsigned char *cells, unsigned int capacity,
                     unsigned int *required_size);
+int aurabot_get_map_snapshot(aurabot_map_snapshot_t *map);
 
 int aurabot_audio_play(unsigned int track_index);
 int aurabot_audio_pause(void);
 int aurabot_audio_stop(void);
 int aurabot_audio_set_volume(int volume_percent);
+int aurabot_audio_set_device(int card);
 int aurabot_audio_get_track_count(unsigned int *track_count);
 int aurabot_audio_get_track_name(unsigned int track_index, char *name,
                                  unsigned int capacity);

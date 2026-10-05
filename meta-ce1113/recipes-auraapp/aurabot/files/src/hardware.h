@@ -1,5 +1,6 @@
 #ifndef AURABOT_HARDWARE_H
 #define AURABOT_HARDWARE_H
+#include <aurabot.h>
 
 typedef struct {
     int left_obstacle;
@@ -9,6 +10,8 @@ typedef struct {
 typedef struct {
     unsigned int left_ticks;
     unsigned int right_ticks;
+    int left_movement;
+    int right_movement;
     int left_direction;
     int right_direction;
     int left_angular_velocity_mrad_s;
@@ -25,6 +28,7 @@ int hardware_right_motor_enabled(void);
 int hardware_left_feedback_enabled(void);
 int hardware_right_feedback_enabled(void);
 int hardware_autonomous_available(void);
+void hardware_get_capabilities(aurabot_capabilities_t *capabilities);
 int hardware_read_sensors(sensor_snapshot_t *result);
 int hardware_take_encoder_sample(encoder_snapshot_t *result);
 int hardware_set_leds(int power, int manual, int autonomous, int obstacle);
@@ -34,6 +38,7 @@ int hardware_audio_play(unsigned int track_index);
 int hardware_audio_pause(void);
 int hardware_audio_stop(void);
 int hardware_audio_set_volume(int volume_percent);
+int hardware_audio_set_device(int card);
 unsigned int hardware_audio_track_count(void);
 int hardware_audio_track_name(unsigned int track_index, char *name,
                               unsigned int capacity);

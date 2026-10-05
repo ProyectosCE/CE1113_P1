@@ -16,6 +16,9 @@ SRC_URI = " \
     file://operaciones.cgi.c \
     file://json_response.c \
     file://json_response.h \
+    file://robot_web.c \
+    file://robot_web.h \
+    file://robot-control.js \
     file://CMakeLists.txt \
     file://webapp-httpd.init \
     file://webapp-httpd-supervisor \
@@ -42,6 +45,7 @@ do_install:append() {
 
     install -m 0644 ${WORKDIR}/app.js \
         ${D}/www/app.js
+    install -m 0644 ${WORKDIR}/robot-control.js ${D}/www/robot-control.js
 
     install -m 0644 ${WORKDIR}/httpd.conf \
         ${D}/etc/httpd.conf

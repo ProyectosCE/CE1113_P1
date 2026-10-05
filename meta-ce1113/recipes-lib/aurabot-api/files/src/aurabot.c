@@ -168,6 +168,10 @@ int aurabot_get_status(aurabot_status_t *status)
     status->auto_state = (aurabot_auto_state_t)aurabot_wire_get_int(payload + offset); offset += 4U;
     READ_STATUS_INT(left_speed);
     READ_STATUS_INT(right_speed);
+    READ_STATUS_INT(left_motor_movement);
+    READ_STATUS_INT(right_motor_movement);
+    READ_STATUS_INT(left_motor_direction);
+    READ_STATUS_INT(right_motor_direction);
     READ_STATUS_INT(left_obstacle);
     READ_STATUS_INT(right_obstacle);
     READ_STATUS_INT(x_mm);
@@ -187,6 +191,35 @@ int aurabot_set_mode(aurabot_mode_t mode)
     unsigned char payload[4];
     aurabot_wire_put_int(payload, (int)mode);
     return transact(AURABOT_CMD_SET_MODE, payload, sizeof(payload), NULL, 0, NULL);
+}
+
+int aurabot_set_mode_controlled(aurabot_mode_t mode,
+    const unsigned char token[AURABOT_OWNER_TOKEN_SIZE])
+{
+    unsigned char payload[4 + AURABOT_OWNER_TOKEN_SIZE];
+    if (token == NULL) return AURABOT_ERR_INVALID_ARGUMENT;
+    aurabot_wire_put_int(payload, (int)mode);
+    memcpy(payload + 4, token, AURABOT_OWNER_TOKEN_SIZE);
+    return transact(AURABOT_CMD_SET_MODE, payload, sizeof(payload), NULL, 0, NULL);
+}
+
+int aurabot_get_capabilities(aurabot_capabilities_t *capabilities)
+{
+    unsigned char payload[28];
+    unsigned int size;
+    int result;
+    if (capabilities == NULL) return AURABOT_ERR_INVALID_ARGUMENT;
+    result = transact(AURABOT_CMD_GET_CAPABILITIES, NULL, 0, payload, sizeof(payload), &size);
+    if (result != AURABOT_OK) return result;
+    if (size != sizeof(payload)) return AURABOT_ERR_PROTOCOL;
+    capabilities->left_motor = aurabot_wire_get_int(payload);
+    capabilities->right_motor = aurabot_wire_get_int(payload + 4);
+    capabilities->left_encoder = aurabot_wire_get_int(payload + 8);
+    capabilities->right_encoder = aurabot_wire_get_int(payload + 12);
+    capabilities->left_sensor = aurabot_wire_get_int(payload + 16);
+    capabilities->right_sensor = aurabot_wire_get_int(payload + 20);
+    capabilities->audio = aurabot_wire_get_int(payload + 24);
+    return AURABOT_OK;
 }
 
 int aurabot_claim_control(const unsigned char token[AURABOT_OWNER_TOKEN_SIZE])
@@ -245,22 +278,30 @@ int aurabot_pwm_stop(int pin)
 int aurabot_get_map(unsigned char *cells, unsigned int capacity,
                     unsigned int *required_size)
 {
+    aurabot_map_snapshot_t map;
+    int result;
+    if (required_size == NULL) return AURABOT_ERR_INVALID_ARGUMENT;
+    *required_size = AURABOT_MAP_CELLS;
+    if (cells == NULL || capacity < AURABOT_MAP_CELLS) return AURABOT_ERR_INVALID_ARGUMENT;
+    result = aurabot_get_map_snapshot(&map);
+    if (result == AURABOT_OK) memcpy(cells, map.cells, AURABOT_MAP_CELLS);
+    return result;
+}
+
+int aurabot_get_map_snapshot(aurabot_map_snapshot_t *map)
+{
     unsigned char payload[12 + AURABOT_MAP_CELLS];
     unsigned int size;
-    unsigned int required;
     int result;
-
-    if (required_size == NULL) return AURABOT_ERR_INVALID_ARGUMENT;
-    required = AURABOT_MAP_CELLS;
-    *required_size = required;
-    if (cells == NULL || capacity < required) return AURABOT_ERR_INVALID_ARGUMENT;
+    if (map == NULL) return AURABOT_ERR_INVALID_ARGUMENT;
     result = transact(AURABOT_CMD_GET_MAP, NULL, 0, payload, sizeof(payload), &size);
     if (result != AURABOT_OK) return result;
     if (size != sizeof(payload) ||
         aurabot_wire_get_uint(payload) != AURABOT_MAP_WIDTH ||
         aurabot_wire_get_uint(payload + 4) != AURABOT_MAP_HEIGHT)
         return AURABOT_ERR_PROTOCOL;
-    memcpy(cells, payload + 12, required);
+    map->revision = aurabot_wire_get_uint(payload + 8);
+    memcpy(map->cells, payload + 12, AURABOT_MAP_CELLS);
     return AURABOT_OK;
 }
 
@@ -291,6 +332,12 @@ int aurabot_audio_set_volume(int volume_percent)
     unsigned char payload[4];
     aurabot_wire_put_int(payload, volume_percent);
     return transact(AURABOT_CMD_AUDIO_SET_VOLUME, payload, sizeof(payload), NULL, 0, NULL);
+}
+
+int aurabot_audio_set_device(int card)
+{
+    if (card < 0 || card > 31) return AURABOT_ERR_INVALID_ARGUMENT;
+    return uint_command(AURABOT_CMD_AUDIO_SET_DEVICE, (unsigned int)card);
 }
 
 int aurabot_audio_get_track_count(unsigned int *track_count)

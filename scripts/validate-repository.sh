@@ -15,6 +15,7 @@ required_files=(
     scripts/check-repository.sh
     scripts/create-recipe.sh
     scripts/lib/image-common.sh
+    scripts/lib/flash-common.sh
     meta-ce1113/conf/layer.conf
     meta-ce1113/recipes-core/images/ce1113-p1.bb
     meta-ce1113/recipes-core/packagegroups/packagegroup-ce1113.bb
@@ -37,22 +38,26 @@ while IFS= read -r directory; do
     esac
 done < <(find meta-ce1113 -mindepth 1 -maxdepth 1 -type d | sort)
 
-for component in libgpio pwm audio leds sensors; do
+for component in libgpio pwm audio leds sensors aurabot-api; do
     [[ -d "meta-ce1113/recipes-lib/$component" ]] || \
         fail "falta la biblioteca requerida recipes-lib/$component"
 done
 while IFS= read -r directory; do
     case "$(basename "$directory")" in
-        libgpio|pwm|audio|leds|sensors) ;;
-        *) fail "recipes-lib solo admite libgpio, pwm, audio, leds y sensors: $directory" ;;
+        libgpio|pwm|audio|leds|sensors|aurabot-api) ;;
+        *) fail "biblioteca no permitida en recipes-lib: $directory" ;;
     esac
 done < <(find meta-ce1113/recipes-lib -mindepth 1 -maxdepth 1 -type d | sort)
 
-[[ -d meta-ce1113/recipes-test/app-operaciones ]] || \
-    fail 'falta recipes-test/app-operaciones'
+for component in app-operaciones prueba-encoder; do
+    [[ -d "meta-ce1113/recipes-test/$component" ]] || \
+        fail "falta la aplicación de prueba recipes-test/$component"
+done
 while IFS= read -r directory; do
-    [[ "$(basename "$directory")" == app-operaciones ]] || \
-        fail "componente no permitido en recipes-test: $directory"
+    case "$(basename "$directory")" in
+        app-operaciones|prueba-encoder) ;;
+        *) fail "componente no permitido en recipes-test: $directory" ;;
+    esac
 done < <(find meta-ce1113/recipes-test -mindepth 1 -maxdepth 1 -type d | sort)
 
 for component in aurabot aurabot-audio-server webapp; do
@@ -202,8 +207,10 @@ done
 grep -Eq '^DEPENDS = "[^\"]*pwm([^\"]*)"' \
     meta-ce1113/recipes-auraapp/aurabot/aurabot_1.0.0.bb || \
     fail 'aurabot debe depender de la receta pwm'
-grep -Eq 'target_link_libraries\(aurabot PRIVATE.*\$\{PWM_LIBRARY\}' \
-    meta-ce1113/recipes-auraapp/aurabot/files/CMakeLists.txt || \
+awk '/target_link_libraries\(aurabot PRIVATE/ { active=1 }
+    active { printf "%s ", $0; if ($0 ~ /\)/) { print ""; active=0 } }' \
+    meta-ce1113/recipes-auraapp/aurabot/files/CMakeLists.txt \
+    | grep -Eq 'target_link_libraries\(aurabot PRIVATE[^)]*\$\{PWM_LIBRARY\}' || \
     fail 'aurabot debe enlazar libpwm dinámicamente'
 grep -Eq '^DEPENDS = "audio"' \
     meta-ce1113/recipes-auraapp/aurabot-audio-server/aurabot-audio-server_1.0.0.bb || \
@@ -211,11 +218,14 @@ grep -Eq '^DEPENDS = "audio"' \
 grep -q 'target_link_libraries(aurabot-audio-server PRIVATE ${AUDIO_LIBRARY})' \
     meta-ce1113/recipes-auraapp/aurabot-audio-server/files/CMakeLists.txt || \
     fail 'aurabot-audio-server debe enlazar libaudio dinámicamente'
-grep -q '/run/aurabot-audio/control' \
+grep -q 'aurabot_audio_play' \
     meta-ce1113/recipes-auraapp/webapp/files/operaciones.cgi.c || \
-    fail 'la webapp debe controlar audio mediante el servidor AuraBot'
+    fail 'la webapp debe controlar audio mediante libaurabot'
+grep -q 'find_library(AURABOT_LIBRARY aurabot' \
+    meta-ce1113/recipes-auraapp/webapp/files/CMakeLists.txt || \
+    fail 'la webapp debe enlazar libaurabot compartida'
 
-for component in libgpio pwm audio leds sensors; do
+for component in libgpio pwm audio leds sensors aurabot-api; do
     grep -Eq 'add_library\([^ ]+ SHARED ' \
         "meta-ce1113/recipes-lib/$component/files/CMakeLists.txt" || \
         fail "recipes-lib/$component debe producir una biblioteca SHARED"
@@ -251,7 +261,9 @@ fi
 for script in build.sh check_image.sh flash_sd.sh load_audio.sh scripts/*.sh; do
     bash -n "$script" || fail "sintaxis shell inválida: $script"
 done
-bash -n scripts/lib/image-common.sh || fail 'sintaxis shell inválida: scripts/lib/image-common.sh'
+for script in scripts/lib/*.sh; do
+    bash -n "$script" || fail "sintaxis shell inválida: $script"
+done
 
 grep -q 'check_image.sh.*--no-ui' build.sh || fail 'build.sh debe verificar la imagen al terminar'
 grep -q 'check_image.sh.*--no-ui' flash_sd.sh || fail 'flash_sd.sh debe verificar la imagen antes de borrar'

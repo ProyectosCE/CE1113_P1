@@ -32,7 +32,7 @@ su área, nunca la receta de imagen ni `layer.conf`.
 | Categoría | Responsabilidad |
 |---|---|
 | `recipes-lib` | Bibliotecas dinámicas `gpio`, `pwm`, `audio`, `leds` y `sensors` |
-| `recipes-test` | Pruebas aisladas, actualmente `app-operaciones` |
+| `recipes-test` | Pruebas aisladas: `app-operaciones` y `prueba-encoder` |
 | `recipes-hw` | Kernel, bootfiles, firmware, Wi-Fi, audio físico y montaje de música |
 | `recipes-auraapp` | Aplicación principal, servidor de audio, CGI, HTTP y frontend |
 
@@ -40,7 +40,7 @@ El contenido de las categorías funcionales es cerrado:
 
 ```text
 recipes-lib/      {libgpio,pwm,audio,leds,sensors}
-recipes-test/     {app-operaciones}
+recipes-test/     {app-operaciones,prueba-encoder}
 recipes-auraapp/  {aurabot,aurabot-audio-server,webapp}
 recipes-hw/       {audio-config,audio-storage,bootfiles,
                    brcmfmac-firmware-fix,busybox,linux,wifi-config}

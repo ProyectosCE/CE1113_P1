@@ -1,7 +1,9 @@
 #include <assert.h>
 #include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include <libgpio.h>
 #include <libleds.h>
@@ -13,6 +15,7 @@
 
 /* Nivel eléctrico real del sensor: alto en reposo, bajo con proximidad. */
 static int sensor_value = 1;
+static volatile sig_atomic_t encoder_value = 1;
 static int red_led;
 static int auto_led;
 static int power_led;
@@ -20,10 +23,10 @@ static int power_led;
 /* Cualquier acceso a un dispositivo deshabilitado debe fallar la prueba. */
 int pinMode(int pin, const char *mode)
 {
-    assert(pin == 24 && strcmp(mode, "in") == 0);
+    assert((pin == 24 || pin == 25) && strcmp(mode, "in") == 0);
     return 0;
 }
-int digitalRead(int pin) { (void)pin; assert(0); return -1; }
+int digitalRead(int pin) { assert(pin == 25); return encoder_value; }
 int digitalWrite(int pin, int value)
 { (void)pin; (void)value; assert(0); return -1; }
 int setPWM(int pin, int frequency, int duty)
@@ -52,6 +55,8 @@ int main(void)
 {
     aurabot_state_t state;
     encoder_snapshot_t sample;
+    struct timespec encoder_delay = { .tv_sec = 0, .tv_nsec = 5000000L };
+    struct timespec movement_timeout = { .tv_sec = 0, .tv_nsec = 60000000L };
     unsigned char owner[AURABOT_OWNER_TOKEN_SIZE] = {1};
 
     assert(robot_controller_init(&state) == AURABOT_OK);
@@ -59,9 +64,26 @@ int main(void)
     assert(state.public_status.auto_state == AURABOT_AUTO_INACTIVE);
     assert(state.public_status.left_speed == 0 && state.public_status.right_speed == 0);
     assert(power_led == 1 && auto_led == 1 && red_led == 0);
+    nanosleep(&encoder_delay, NULL);
     assert(hardware_take_encoder_sample(&sample) == 0);
     assert(sample.left_ticks == 0 && sample.right_ticks == 0);
+    assert(sample.left_movement == 0 && sample.right_movement == 0);
     assert(sample.left_angular_velocity_mrad_s == 0 && sample.right_angular_velocity_mrad_s == 0);
+
+    encoder_value = 0;
+    nanosleep(&encoder_delay, NULL);
+    assert(hardware_take_encoder_sample(&sample) == 0);
+    assert(sample.right_ticks == 1);
+    assert(sample.right_movement == 1);
+    encoder_value = 1;
+    nanosleep(&encoder_delay, NULL);
+    assert(hardware_take_encoder_sample(&sample) == 0);
+    assert(sample.right_ticks == 0);
+    assert(sample.right_movement == 1);
+    nanosleep(&movement_timeout, NULL);
+    assert(hardware_take_encoder_sample(&sample) == 0);
+    assert(sample.right_ticks == 0);
+    assert(sample.right_movement == 0);
 
     sensor_value = 0;
     state.motion_last_tick.tv_sec -= 60;

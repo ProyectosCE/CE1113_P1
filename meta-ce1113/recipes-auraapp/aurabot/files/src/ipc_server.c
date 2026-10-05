@@ -12,6 +12,7 @@
 
 #include "audio_controller.h"
 #include "hardware.h"
+#include "control_lease.h"
 #include "ipc_server.h"
 #include "robot_controller.h"
 
@@ -101,6 +102,10 @@ static void serialize_status(const aurabot_status_t *status,
     WRITE_INT(status->auto_state);
     WRITE_INT(status->left_speed);
     WRITE_INT(status->right_speed);
+    WRITE_INT(status->left_motor_movement);
+    WRITE_INT(status->right_motor_movement);
+    WRITE_INT(status->left_motor_direction);
+    WRITE_INT(status->right_motor_direction);
     WRITE_INT(status->left_obstacle);
     WRITE_INT(status->right_obstacle);
     WRITE_INT(status->x_mm);
@@ -121,13 +126,35 @@ static int dispatch(aurabot_state_t *state, unsigned int command,
     int result;
     *response_size = 0U;
     switch (command) {
+    case AURABOT_CMD_GET_CAPABILITIES: {
+        aurabot_capabilities_t capabilities;
+        if (request_size != 0U) return AURABOT_ERR_PROTOCOL;
+        hardware_get_capabilities(&capabilities);
+        aurabot_wire_put_int(response, capabilities.left_motor);
+        aurabot_wire_put_int(response + 4, capabilities.right_motor);
+        aurabot_wire_put_int(response + 8, capabilities.left_encoder);
+        aurabot_wire_put_int(response + 12, capabilities.right_encoder);
+        aurabot_wire_put_int(response + 16, capabilities.left_sensor);
+        aurabot_wire_put_int(response + 20, capabilities.right_sensor);
+        aurabot_wire_put_int(response + 24, capabilities.audio);
+        *response_size = 28U;
+        return AURABOT_OK;
+    }
+    case AURABOT_CMD_AUDIO_SET_DEVICE:
+        if (request_size != 4U) return AURABOT_ERR_PROTOCOL;
+        result = aurabot_wire_get_int(request);
+        if (result < 0 || result > 31) return AURABOT_ERR_INVALID_ARGUMENT;
+        return hardware_audio_set_device(result) == 0 ? AURABOT_OK : AURABOT_ERR_HARDWARE;
     case AURABOT_CMD_GET_STATUS:
         if (request_size != 0U) return AURABOT_ERR_PROTOCOL;
         serialize_status(&state->public_status, response);
         *response_size = AURABOT_STATUS_PAYLOAD_SIZE;
         return AURABOT_OK;
     case AURABOT_CMD_SET_MODE:
-        if (request_size != 4U) return AURABOT_ERR_PROTOCOL;
+        if (request_size != 4U && request_size != 4U + AURABOT_OWNER_TOKEN_SIZE)
+            return AURABOT_ERR_PROTOCOL;
+        if (state->owner_active && (request_size == 4U ||
+            !control_lease_is_owner(state, request + 4))) return AURABOT_ERR_BUSY;
         return robot_controller_set_mode(state,
             (aurabot_mode_t)aurabot_wire_get_int(request));
     case AURABOT_CMD_DIGITAL_WRITE:

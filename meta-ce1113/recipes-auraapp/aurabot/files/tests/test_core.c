@@ -43,6 +43,10 @@ int main(void)
            AURABOT_ERR_NOT_OWNER);
     assert(robot_controller_drive(&state, owner, 50, 50) == AURABOT_OK);
     tick_for(&state, 250);
+    assert(state.public_status.left_motor_movement == 1);
+    assert(state.public_status.right_motor_movement == 1);
+    assert(state.public_status.left_motor_direction == 1);
+    assert(state.public_status.right_motor_direction == 1);
     assert(state.public_status.x_mm > 0);
     assert(robot_controller_release(&state, owner) == AURABOT_OK);
 

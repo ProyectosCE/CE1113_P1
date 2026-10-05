@@ -4,7 +4,7 @@
 /* Periodo máximo entre iteraciones del controlador principal. */
 #define AURABOT_CONTROL_TICK_MS 25
 /* Tiempo sin heartbeat tras el cual se libera el control manual. */
-#define AURABOT_OWNER_LEASE_MS 3000
+#define AURABOT_OWNER_LEASE_MS AURABOT_CONTROL_LEASE_MS
 /* Tiempo de movimiento sin ticks antes de declarar un bloqueo mecánico. */
 #define AURABOT_MOTION_STALL_MS 1000
 /* Media vuelta expresada en milirradianes. */

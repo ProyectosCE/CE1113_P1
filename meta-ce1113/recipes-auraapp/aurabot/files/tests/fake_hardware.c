@@ -57,6 +57,14 @@ int hardware_right_motor_enabled(void) { return 1; }
 int hardware_left_feedback_enabled(void) { return 1; }
 int hardware_right_feedback_enabled(void) { return 1; }
 int hardware_autonomous_available(void) { return 1; }
+void hardware_get_capabilities(aurabot_capabilities_t *capabilities)
+{
+    capabilities->left_motor = capabilities->right_motor = 1;
+    capabilities->left_encoder = capabilities->right_encoder = 1;
+    capabilities->left_sensor = capabilities->right_sensor = 1;
+    capabilities->audio = 1;
+}
+int hardware_audio_set_device(int card) { return card >= 0 && card <= 31 ? 0 : -1; }
 
 int hardware_read_sensors(sensor_snapshot_t *result)
 {
@@ -91,6 +99,9 @@ int hardware_take_encoder_sample(encoder_snapshot_t *result)
     milliseconds = elapsed_ms(&sample_started, &now);
     sample_started = now;
     memset(result, 0, sizeof(*result));
+    /* La telemetría publica movimiento interpretado, no el nivel GPIO. */
+    result->left_movement = left_speed != 0;
+    result->right_movement = right_speed != 0;
     result->left_direction = left_speed > 0 ? 1 : left_speed < 0 ? -1 : 0;
     result->right_direction = right_speed > 0 ? 1 : right_speed < 0 ? -1 : 0;
     result->left_ticks = calculate_ticks(left_speed, milliseconds,

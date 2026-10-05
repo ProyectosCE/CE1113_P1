@@ -7,6 +7,7 @@ find_library(AURABOT_LIBRARY aurabot REQUIRED)
 add_executable(operaciones.cgi
 	operaciones.cgi.c
 	json_response.c
+    robot_web.c
 )
 
 target_include_directories(operaciones.cgi PRIVATE

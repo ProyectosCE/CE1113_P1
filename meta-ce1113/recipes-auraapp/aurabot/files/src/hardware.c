@@ -20,11 +20,19 @@ static pthread_mutex_t encoder_lock = PTHREAD_MUTEX_INITIALIZER;
 static int encoder_running;
 static unsigned int left_ticks;
 static unsigned int right_ticks;
+static int left_movement;
+static int right_movement;
 static int left_direction;
 static int right_direction;
 static int left_speed;
 static int right_speed;
 static struct timespec sample_started;
+
+typedef struct {
+    int previous_level;
+    int pulse_received;
+    struct timespec last_pulse;
+} encoder_runtime_t;
 
 static long long elapsed_ms(const struct timespec *start,
                             const struct timespec *end)
@@ -32,6 +40,28 @@ static long long elapsed_ms(const struct timespec *start,
     long long value = (long long)(end->tv_sec - start->tv_sec) * 1000LL +
         (end->tv_nsec - start->tv_nsec) / 1000000LL;
     return value > 0 ? value : 1;
+}
+
+static void update_encoder_state(int enabled, int current_level,
+                                 encoder_runtime_t *runtime,
+                                 unsigned int *ticks, int *movement,
+                                 const struct timespec *now)
+{
+    if (!enabled || current_level < 0) {
+        *movement = 0;
+        return;
+    }
+
+    /* La señal Hall es activa-baja: la transición 1 -> 0 es un pulso. */
+    if (runtime->previous_level == 1 && current_level == 0) {
+        ++*ticks;
+        runtime->last_pulse = *now;
+        runtime->pulse_received = 1;
+    }
+    *movement = runtime->pulse_received &&
+        elapsed_ms(&runtime->last_pulse, now) <
+            AURABOT_ENCODER_MOVEMENT_TIMEOUT_MS;
+    runtime->previous_level = current_level;
 }
 
 static int all_pins_configured(void)
@@ -52,25 +82,31 @@ static int all_pins_configured(void)
 
 static void *encoder_worker(void *unused)
 {
-    int previous_left = 0;
-    int previous_right = 0;
+    encoder_runtime_t left_runtime = {0};
+    encoder_runtime_t right_runtime = {0};
     struct timespec delay = { .tv_sec = 0,
         .tv_nsec = AURABOT_ENCODER_POLL_US * 1000L };
     (void)unused;
-    previous_left = AURABOT_LEFT_ENCODER_ENABLE ? digitalRead(AURABOT_LEFT_ENCODER_PIN) : 0;
-    previous_right = AURABOT_RIGHT_ENCODER_ENABLE ? digitalRead(AURABOT_RIGHT_ENCODER_PIN) : 0;
+    left_runtime.previous_level = AURABOT_LEFT_ENCODER_ENABLE ?
+        digitalRead(AURABOT_LEFT_ENCODER_PIN) : 1;
+    right_runtime.previous_level = AURABOT_RIGHT_ENCODER_ENABLE ?
+        digitalRead(AURABOT_RIGHT_ENCODER_PIN) : 1;
     for (;;) {
+        struct timespec now;
         int keep_running;
-        int current_left = AURABOT_LEFT_ENCODER_ENABLE ? digitalRead(AURABOT_LEFT_ENCODER_PIN) : 0;
-        int current_right = AURABOT_RIGHT_ENCODER_ENABLE ? digitalRead(AURABOT_RIGHT_ENCODER_PIN) : 0;
+        int current_left = AURABOT_LEFT_ENCODER_ENABLE ? digitalRead(AURABOT_LEFT_ENCODER_PIN) : 1;
+        int current_right = AURABOT_RIGHT_ENCODER_ENABLE ? digitalRead(AURABOT_RIGHT_ENCODER_PIN) : 1;
+        int time_available = clock_gettime(CLOCK_MONOTONIC, &now) == 0;
         pthread_mutex_lock(&encoder_lock);
         keep_running = encoder_running;
-        if (current_left == 1 && previous_left == 0) ++left_ticks;
-        if (current_right == 1 && previous_right == 0) ++right_ticks;
+        if (time_available) {
+            update_encoder_state(AURABOT_LEFT_ENCODER_ENABLE, current_left,
+                &left_runtime, &left_ticks, &left_movement, &now);
+            update_encoder_state(AURABOT_RIGHT_ENCODER_ENABLE, current_right,
+                &right_runtime, &right_ticks, &right_movement, &now);
+        } else left_movement = right_movement = 0;
         pthread_mutex_unlock(&encoder_lock);
         if (!keep_running) break;
-        if (current_left >= 0) previous_left = current_left;
-        if (current_right >= 0) previous_right = current_right;
         nanosleep(&delay, NULL);
     }
     return NULL;
@@ -113,6 +149,7 @@ int hardware_init(void)
     if (hardware_stop() != 0 || hardware_set_leds(0, 0, 0, 0) != 0)
         return -1;
     left_ticks = right_ticks = 0U;
+    left_movement = right_movement = 0;
     left_direction = right_direction = 0;
     clock_gettime(CLOCK_MONOTONIC, &sample_started);
     if (!AURABOT_LEFT_ENCODER_ENABLE && !AURABOT_RIGHT_ENCODER_ENABLE) return 0;
@@ -212,6 +249,8 @@ int hardware_take_encoder_sample(encoder_snapshot_t *result)
     pthread_mutex_lock(&encoder_lock);
     result->left_ticks = left_ticks;
     result->right_ticks = right_ticks;
+    result->left_movement = left_movement;
+    result->right_movement = right_movement;
     result->left_direction = left_direction;
     result->right_direction = right_direction;
     left_ticks = right_ticks = 0U;
@@ -339,6 +378,14 @@ unsigned int hardware_audio_track_count(void)
     return count;
 }
 
+int hardware_audio_set_device(int card)
+{
+    char command[32];
+    if (card < 0 || card > 31) { errno = EINVAL; return -1; }
+    snprintf(command, sizeof(command), "DEVICE %d", card);
+    return send_audio_command(command);
+}
+
 int hardware_audio_track_name(unsigned int track_index, char *name,
                               unsigned int capacity)
 {
@@ -389,4 +436,15 @@ int hardware_autonomous_available(void)
 {
     return hardware_left_feedback_enabled() && hardware_right_feedback_enabled() &&
         (AURABOT_LEFT_SENSOR_ENABLE || AURABOT_RIGHT_SENSOR_ENABLE);
+}
+
+void hardware_get_capabilities(aurabot_capabilities_t *capabilities)
+{
+    capabilities->left_motor = !!AURABOT_LEFT_MOTOR_ENABLE;
+    capabilities->right_motor = !!AURABOT_RIGHT_MOTOR_ENABLE;
+    capabilities->left_encoder = !!AURABOT_LEFT_ENCODER_ENABLE;
+    capabilities->right_encoder = !!AURABOT_RIGHT_ENCODER_ENABLE;
+    capabilities->left_sensor = !!AURABOT_LEFT_SENSOR_ENABLE;
+    capabilities->right_sensor = !!AURABOT_RIGHT_SENSOR_ENABLE;
+    capabilities->audio = !!AURABOT_AUDIO_ENABLE;
 }
