@@ -55,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           prefix="$RUNNER_TEMP/aurabot-root"
-          for component in libgpio audio; do
+          for component in libgpio audio aurabot-api; do
             cmake -S "meta-ce1113/recipes-lib/$component/files" -B "build-$component" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$prefix"
             cmake --build "build-$component" --parallel
             cmake --install "build-$component"
@@ -73,5 +73,6 @@ jobs:
           prefix="$RUNNER_TEMP/aurabot-root"
           cmake -S meta-ce1113/recipes-auraapp/aurabot/files -B build-aurabot -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$prefix"
           cmake --build build-aurabot --parallel
+          ctest --test-dir build-aurabot --output-on-failure
           cmake -S meta-ce1113/recipes-auraapp/aurabot-audio-server/files -B build-audio-server -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$prefix"
           cmake --build build-audio-server --parallel

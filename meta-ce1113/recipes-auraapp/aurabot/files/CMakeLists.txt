@@ -82,7 +82,8 @@ if(BUILD_TESTING AND NOT AURABOT_FAKE_HARDWARE)
         ${CMAKE_CURRENT_SOURCE_DIR}/src ${AURABOT_API_INCLUDE_DIR}
         ${PWM_INCLUDE_DIR} ${GPIO_INCLUDE_DIR} ${SENSORS_INCLUDE_DIR} ${LEDS_INCLUDE_DIR})
     target_link_libraries(test_partial_hardware PRIVATE Threads::Threads)
-    target_compile_options(test_partial_hardware PRIVATE -Wall -Wextra -Werror)
+    target_compile_options(test_partial_hardware PRIVATE
+        -Wall -Wextra -Werror -UNDEBUG)
     target_compile_definitions(test_partial_hardware PRIVATE
         AURABOT_LEFT_MOTOR_ENABLE=0 AURABOT_RIGHT_MOTOR_ENABLE=0
         AURABOT_LEFT_ENCODER_ENABLE=0 AURABOT_RIGHT_ENCODER_ENABLE=1
@@ -104,7 +105,7 @@ if(BUILD_TESTING AND AURABOT_FAKE_HARDWARE)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${AURABOT_API_INCLUDE_DIR}
     )
-    target_compile_options(test_fsm PRIVATE -Wall -Wextra -Werror)
+    target_compile_options(test_fsm PRIVATE -Wall -Wextra -Werror -UNDEBUG)
     add_test(NAME aurabot_fsm_transitions COMMAND test_fsm)
 
     add_executable(test_core
@@ -118,7 +119,7 @@ if(BUILD_TESTING AND AURABOT_FAKE_HARDWARE)
         ${AURABOT_API_INCLUDE_DIR}
     )
     target_link_libraries(test_core PRIVATE Threads::Threads)
-    target_compile_options(test_core PRIVATE -Wall -Wextra -Werror)
+    target_compile_options(test_core PRIVATE -Wall -Wextra -Werror -UNDEBUG)
     add_test(NAME aurabot_core_fsm COMMAND test_core)
 
     add_executable(test_map tests/test_map.c src/map.c src/angle_math.c)
@@ -126,6 +127,6 @@ if(BUILD_TESTING AND AURABOT_FAKE_HARDWARE)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${AURABOT_API_INCLUDE_DIR}
     )
-    target_compile_options(test_map PRIVATE -Wall -Wextra -Werror)
+    target_compile_options(test_map PRIVATE -Wall -Wextra -Werror -UNDEBUG)
     add_test(NAME aurabot_map COMMAND test_map)
 endif()
