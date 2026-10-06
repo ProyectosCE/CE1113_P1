@@ -2,27 +2,27 @@
 #define AURABOT_HARDWARE_CONFIG_H
 
 /* Habilitación por dispositivo: 1 conectado, 0 omitido por completo.
- * Perfil inicial de pruebas: un infrarrojo y LED; motores/encoders/audio apagados.
- * Cambiar a 1 los dispositivos conectados antes de reconstruir la imagen. */
+ * El perfil predeterminado es el producto completo. Las bancadas parciales
+ * pueden sobrescribir estas macros al configurar CMake. */
 /* Habilita las tres señales del motor izquierdo (PWM, IN1 e IN2). */
 #ifndef AURABOT_LEFT_MOTOR_ENABLE
-#define AURABOT_LEFT_MOTOR_ENABLE 0
+#define AURABOT_LEFT_MOTOR_ENABLE 1
 #endif
 /* Habilita las tres señales del motor derecho (PWM, IN1 e IN2). */
 #ifndef AURABOT_RIGHT_MOTOR_ENABLE
-#define AURABOT_RIGHT_MOTOR_ENABLE 0
+#define AURABOT_RIGHT_MOTOR_ENABLE 1
 #endif
-/* Habilita la lectura del infrarrojo izquierdo, GPIO BCM 16. */
+/* Habilita la lectura del infrarrojo izquierdo, GPIO BCM 9. */
 #ifndef AURABOT_LEFT_SENSOR_ENABLE
-#define AURABOT_LEFT_SENSOR_ENABLE 0
+#define AURABOT_LEFT_SENSOR_ENABLE 1
 #endif
-/* Habilita la lectura del infrarrojo derecho, GPIO BCM 24. */
+/* Habilita la lectura del infrarrojo derecho, GPIO BCM 10. */
 #ifndef AURABOT_RIGHT_SENSOR_ENABLE
 #define AURABOT_RIGHT_SENSOR_ENABLE 1
 #endif
 /* Habilita el muestreo del encoder Hall izquierdo. */
 #ifndef AURABOT_LEFT_ENCODER_ENABLE
-#define AURABOT_LEFT_ENCODER_ENABLE 0
+#define AURABOT_LEFT_ENCODER_ENABLE 1
 #endif
 /* Habilita el muestreo del encoder Hall derecho. */
 #ifndef AURABOT_RIGHT_ENCODER_ENABLE
@@ -32,7 +32,7 @@
 #ifndef AURABOT_LED_POWER_ENABLE
 #define AURABOT_LED_POWER_ENABLE 1
 #endif
-/* Habilita el LED de modo manual, GPIO BCM 23. */
+/* Habilita el LED de modo manual, GPIO BCM 17. */
 #ifndef AURABOT_LED_MANUAL_ENABLE
 #define AURABOT_LED_MANUAL_ENABLE 1
 #endif
@@ -40,13 +40,13 @@
 #ifndef AURABOT_LED_AUTO_ENABLE
 #define AURABOT_LED_AUTO_ENABLE 1
 #endif
-/* Habilita el LED de obstáculo, GPIO BCM 17. */
+/* Habilita el LED de obstáculo, GPIO BCM 4. */
 #ifndef AURABOT_LED_OBSTACLE_ENABLE
 #define AURABOT_LED_OBSTACLE_ENABLE 1
 #endif
 /* Habilita el acceso al servidor de audio y a su playlist. */
 #ifndef AURABOT_AUDIO_ENABLE
-#define AURABOT_AUDIO_ENABLE 0
+#define AURABOT_AUDIO_ENABLE 1
 #endif
 
 /* Pin BCM de la señal PWM del motor izquierdo; -1 indica no configurado. */
@@ -67,19 +67,19 @@
 #endif
 /* Pin BCM IN1 del puente H del motor derecho; -1 indica no configurado. */
 #ifndef AURABOT_RIGHT_IN1_PIN
-#define AURABOT_RIGHT_IN1_PIN (10)
+#define AURABOT_RIGHT_IN1_PIN (23)
 #endif
 /* Pin BCM IN2 del puente H del motor derecho; -1 indica no configurado. */
 #ifndef AURABOT_RIGHT_IN2_PIN
-#define AURABOT_RIGHT_IN2_PIN (9)
+#define AURABOT_RIGHT_IN2_PIN (24)
 #endif
 /* Pin BCM del sensor infrarrojo izquierdo; -1 indica no configurado. */
 #ifndef AURABOT_LEFT_SENSOR_PIN
-#define AURABOT_LEFT_SENSOR_PIN (16)
+#define AURABOT_LEFT_SENSOR_PIN (9)
 #endif
 /* Pin BCM del sensor infrarrojo derecho; -1 indica no configurado. */
 #ifndef AURABOT_RIGHT_SENSOR_PIN
-#define AURABOT_RIGHT_SENSOR_PIN (24)
+#define AURABOT_RIGHT_SENSOR_PIN (10)
 #endif
 /* Pin BCM del encoder Hall izquierdo; -1 indica no configurado. */
 #ifndef AURABOT_LEFT_ENCODER_PIN
@@ -87,7 +87,7 @@
 #endif
 /* Pin BCM del encoder Hall derecho; -1 indica no configurado. */
 #ifndef AURABOT_RIGHT_ENCODER_PIN
-#define AURABOT_RIGHT_ENCODER_PIN (25) //6
+#define AURABOT_RIGHT_ENCODER_PIN (6) //6
 #endif
 /* Pin BCM del LED que indica alimentación/servicio activo. */
 #ifndef AURABOT_LED_POWER_PIN
@@ -95,7 +95,7 @@
 #endif
 /* Pin BCM del LED que indica modo manual. */
 #ifndef AURABOT_LED_MANUAL_PIN
-#define AURABOT_LED_MANUAL_PIN (23)
+#define AURABOT_LED_MANUAL_PIN (17)
 #endif
 /* Pin BCM del LED que indica modo autónomo. */
 #ifndef AURABOT_LED_AUTO_PIN
@@ -103,7 +103,7 @@
 #endif
 /* Pin BCM del LED que indica detección de obstáculo. */
 #ifndef AURABOT_LED_OBSTACLE_PIN
-#define AURABOT_LED_OBSTACLE_PIN (17)
+#define AURABOT_LED_OBSTACLE_PIN (4)
 #endif
 
 /* Infrarrojo conectado: 0 detecta objeto, 1 está libre; invertir la lectura. */
@@ -116,16 +116,15 @@
 #define AURABOT_ENCODER_POLL_US 1000
 /* Tiempo sin flancos tras el cual el encoder se considera quieto. */
 #define AURABOT_ENCODER_MOVEMENT_TIMEOUT_MS 50
-/* Ticks medidos por vuelta del motor izquierdo; valor calibrable. */
-#define AURABOT_LEFT_TICKS_PER_REVOLUTION 35U
-/* Ticks medidos por vuelta del motor derecho; valor calibrable. */
-#define AURABOT_RIGHT_TICKS_PER_REVOLUTION 35U
+/* Ticks medidos por vuelta con encoder_count; valor calibrable. */
+#define AURABOT_LEFT_TICKS_PER_REVOLUTION 150U
+#define AURABOT_RIGHT_TICKS_PER_REVOLUTION 150U
 /* Recorrido lineal de una vuelta de la rueda izquierda, en milímetros. */
-#define AURABOT_LEFT_WHEEL_CIRCUMFERENCE_MM 204U
+#define AURABOT_LEFT_WHEEL_CIRCUMFERENCE_MM 189U
 /* Recorrido lineal de una vuelta de la rueda derecha, en milímetros. */
-#define AURABOT_RIGHT_WHEEL_CIRCUMFERENCE_MM 204U
+#define AURABOT_RIGHT_WHEEL_CIRCUMFERENCE_MM 189U
 /* Separación entre los centros de las ruedas, en milímetros. */
-#define AURABOT_WHEEL_BASE_MM 160U
+#define AURABOT_WHEEL_BASE_MM 2000U
 /* Vuelta completa en microrradianes para calcular mrad/s sin coma flotante. */
 #define AURABOT_FULL_TURN_MICRORAD 6283185LL
 /* FIFO usado para enviar órdenes al servidor persistente de audio. */

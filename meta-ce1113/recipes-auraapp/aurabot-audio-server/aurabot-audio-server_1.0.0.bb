@@ -7,21 +7,18 @@ RDEPENDS:${PN} = "audio ce1113-audio-config"
 SRC_URI = " \
     file://CMakeLists.txt \
     file://aurabot-audio-server.c \
-    file://aurabot-audio.init \
-    file://aurabot-audio-supervisor \
+    file://aurabot-audio.service \
 "
 S = "${WORKDIR}"
 
-inherit cmake update-rc.d
-INITSCRIPT_NAME = "aurabot-audio"
-INITSCRIPT_PARAMS = "defaults 70"
+inherit cmake systemd
+SYSTEMD_SERVICE:${PN} = "aurabot-audio.service"
+SYSTEMD_AUTO_ENABLE:${PN} = "enable"
 
 do_install:append() {
-    install -d ${D}${sysconfdir}/init.d ${D}${sbindir}
-    install -m 0755 ${WORKDIR}/aurabot-audio.init \
-        ${D}${sysconfdir}/init.d/aurabot-audio
-    install -m 0755 ${WORKDIR}/aurabot-audio-supervisor \
-        ${D}${sbindir}/aurabot-audio-supervisor
+    install -d ${D}${systemd_system_unitdir}
+    install -m 0644 ${WORKDIR}/aurabot-audio.service \
+        ${D}${systemd_system_unitdir}/aurabot-audio.service
 }
 
-FILES:${PN} += "${sysconfdir}/init.d/aurabot-audio ${sbindir}/aurabot-audio-supervisor"
+FILES:${PN} += "${systemd_system_unitdir}/aurabot-audio.service"

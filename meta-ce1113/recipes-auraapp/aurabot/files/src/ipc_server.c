@@ -116,6 +116,10 @@ static void serialize_status(const aurabot_status_t *status,
     WRITE_INT(status->audio_state);
     WRITE_INT(status->audio_volume_percent);
     WRITE_INT(status->audio_track_index);
+    WRITE_INT(status->power_led);
+    WRITE_INT(status->manual_led);
+    WRITE_INT(status->autonomous_led);
+    WRITE_INT(status->obstacle_led);
 #undef WRITE_INT
 }
 
@@ -137,7 +141,11 @@ static int dispatch(aurabot_state_t *state, unsigned int command,
         aurabot_wire_put_int(response + 16, capabilities.left_sensor);
         aurabot_wire_put_int(response + 20, capabilities.right_sensor);
         aurabot_wire_put_int(response + 24, capabilities.audio);
-        *response_size = 28U;
+        aurabot_wire_put_int(response + 28, capabilities.power_led);
+        aurabot_wire_put_int(response + 32, capabilities.manual_led);
+        aurabot_wire_put_int(response + 36, capabilities.autonomous_led);
+        aurabot_wire_put_int(response + 40, capabilities.obstacle_led);
+        *response_size = 44U;
         return AURABOT_OK;
     }
     case AURABOT_CMD_AUDIO_SET_DEVICE:

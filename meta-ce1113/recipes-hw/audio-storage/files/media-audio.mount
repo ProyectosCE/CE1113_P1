@@ -1,0 +1,13 @@
+[Unit]
+Description=AuraBot persistent audio partition
+Before=aurabot-audio.service
+
+[Mount]
+What=/dev/disk/by-label/AURA_AUDIO
+Where=/media/audio
+Type=ext4
+Options=defaults,noatime
+TimeoutSec=15s
+
+[Install]
+WantedBy=multi-user.target

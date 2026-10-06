@@ -1,0 +1,21 @@
+[Unit]
+Description=AuraBot web control server
+After=aurabot.service network.target
+Wants=aurabot.service
+StartLimitIntervalSec=60s
+StartLimitBurst=5
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/httpd -f -p 80 -h /www -c /etc/httpd.conf
+Restart=on-failure
+RestartSec=2s
+RuntimeDirectory=aurabot-web-sessions
+RuntimeDirectoryMode=0700
+PrivateTmp=true
+NoNewPrivileges=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,295 +1,139 @@
-const API = "/cgi-bin/operaciones.cgi";
+(() => {
+    "use strict";
 
-const resultElement = document.getElementById("result");
-const statusElement = document.getElementById("status");
-const GPIO_PINS = [4, 12, 13, 18, 19, 20, 21, 26];
+    const resultElement = document.getElementById("result");
+    const statusElement = document.getElementById("status");
+    const byId = id => document.getElementById(id);
 
-async function callApi(parameters) {
-    statusElement.textContent = "Enviando comando...";
-    try {
-        const response = await fetch(`${API}?${new URLSearchParams(parameters)}`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        showResult(data);
-        return data;
-    } catch (error) {
-        statusElement.textContent = "Error de comunicación";
-        resultElement.textContent = error.message;
-        return null;
-    }
-}
-
-async function executeOperation(operation) {
-
-    const a = document.getElementById("a").value;
-    const b = document.getElementById("b").value;
-
-    let url;
-
-    if (operation === "mensaje") {
-
-        url =
-            `${API}?op=mensaje`;
-
-    } else if (operation === "audio-play") {
-
-        const track = document.getElementById("audio-track").value;
-        if (track === "") {
-            statusElement.textContent = "Seleccione una canción";
+    function showResult(data) {
+        if (!data?.ok) {
+            statusElement.textContent = data?.error || "La operación produjo un error";
+            resultElement.textContent = JSON.stringify(data || { error: "Sin respuesta" }, null, 2);
             return;
         }
-        url = `${API}?op=audio-track&track=${encodeURIComponent(track)}`;
-
-    } else if (operation.startsWith("audio-")) {
-
-        url = `${API}?op=${encodeURIComponent(operation)}`;
-
-    } else if (operation === "sqrt") {
-
-        url =
-            `${API}?op=sqrt` +
-            `&a=${encodeURIComponent(a)}`;
-
-    } else {
-
-        url =
-            `${API}?op=${encodeURIComponent(operation)}` +
-            `&a=${encodeURIComponent(a)}` +
-            `&b=${encodeURIComponent(b)}`;
+        statusElement.textContent = data.operacion ? `Operación completada: ${data.operacion}` : "Operación completada";
+        resultElement.textContent = JSON.stringify(data, null, 2);
     }
 
-    statusElement.textContent =
-        "Ejecutando operación...";
-
-    try {
-
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            throw new Error(
-                `HTTP ${response.status}`
-            );
+    async function executeOperation(operation) {
+        const parameters = { op: operation };
+        if (operation === "audio-play") {
+            const track = byId("audio-track").value;
+            if (track === "") { statusElement.textContent = "Seleccione una canción"; return; }
+            parameters.op = "audio-track";
+            parameters.track = track;
+        } else if (operation === "sqrt") {
+            parameters.a = byId("a").value;
+        } else if (!["mensaje", "audio-pause", "audio-stop"].includes(operation)) {
+            parameters.a = byId("a").value;
+            parameters.b = byId("b").value;
         }
 
-        const data = await response.json();
-
-        showResult(data);
-
-    } catch (error) {
-
-        statusElement.textContent =
-            "Error de comunicación";
-
-        resultElement.textContent =
-            error.message;
+        statusElement.textContent = "Ejecutando operación…";
+        try { showResult(await window.aurabotApi.request(parameters, { post: true })); }
+        catch (error) {
+            statusElement.textContent = "Error de comunicación";
+            resultElement.textContent = error.message;
+        }
     }
-}
 
-async function loadPlaylist() {
-    const select = document.getElementById("audio-track");
-    const hint = document.getElementById("audio-track-hint");
-    try {
-        const response = await fetch(`${API}?op=audio-playlist`);
-        const data = await response.json();
-        if (!data.ok || !Array.isArray(data.canciones)) throw new Error("Playlist no válida");
-        select.innerHTML = "";
-        data.canciones.forEach((song, index) => {
-            const option = document.createElement("option");
-            option.value = String(index);
-            option.textContent = song;
-            select.appendChild(option);
-        });
-        if (data.canciones.length === 0) {
-            select.innerHTML = '<option value="">No hay canciones disponibles</option>';
-            hint.textContent = "Cargue archivos MP3 y genere /media/audio/playlist.txt.";
-        } else {
-            hint.textContent = `${data.canciones.length} canción(es) disponibles.`;
+    async function loadPlaylist() {
+        const select = byId("audio-track");
+        const hint = byId("audio-track-hint");
+        try {
+            const data = await window.aurabotApi.request({ op: "audio-playlist" });
+            if (!data.ok || !Array.isArray(data.canciones)) throw new Error(data.error || "Playlist no válida");
+            select.replaceChildren();
+            data.canciones.forEach((song, index) => {
+                const option = document.createElement("option");
+                option.value = String(index);
+                option.textContent = song;
+                select.appendChild(option);
+            });
+            if (data.canciones.length === 0) {
+                select.add(new Option("No hay canciones disponibles", ""));
+                hint.textContent = "Cargue archivos MP3 y genere /media/audio/playlist.txt.";
+            } else hint.textContent = `${data.canciones.length} canción(es) disponibles.`;
+        } catch (error) {
+            select.replaceChildren(new Option("No se pudo cargar la playlist", ""));
+            hint.textContent = error.message;
         }
-    } catch (error) {
-        select.innerHTML = '<option value="">No se pudo cargar la playlist</option>';
-        hint.textContent = error.message;
     }
-}
 
-function moveTrack(offset) {
-    const select = document.getElementById("audio-track");
-    if (select.options.length === 0 || select.value === "") return;
-    select.selectedIndex = (select.selectedIndex + offset + select.options.length) % select.options.length;
-}
+    function moveTrack(offset) {
+        const select = byId("audio-track");
+        if (select.options.length === 0 || select.value === "") return;
+        select.selectedIndex = (select.selectedIndex + offset + select.options.length) % select.options.length;
+    }
 
-async function loadAudioDevices() {
-    const select = document.getElementById("audio-device");
-    const hint = document.getElementById("audio-device-hint");
-
-    select.innerHTML = '<option value="">Buscando dispositivos ALSA...</option>';
-    try {
-        const response = await fetch(`${API}?op=audio-devices`);
-        const data = await response.json();
-        if (!data.ok || !Array.isArray(data.dispositivos)) {
-            throw new Error("Respuesta de dispositivos no válida");
-        }
-
-        select.innerHTML = "";
-        let analogOption = null;
-        data.dispositivos.forEach(device => {
-            const option = document.createElement("option");
-            option.value = String(device.card);
-            option.textContent = `Tarjeta ${device.card}: ${device.id}` +
-                (device.analog35 ? " — jack 3.5 mm" : "");
-            select.appendChild(option);
-            if (device.analog35) {
-                analogOption = option;
+    async function loadAudioDevices() {
+        const select = byId("audio-device");
+        const hint = byId("audio-device-hint");
+        select.replaceChildren(new Option("Buscando dispositivos ALSA…", ""));
+        try {
+            const data = await window.aurabotApi.request({ op: "audio-devices" });
+            if (!data.ok || !Array.isArray(data.dispositivos)) {
+                throw new Error(data.error || "Respuesta de dispositivos no válida");
             }
-        });
-
-        if (analogOption !== null) {
-            analogOption.selected = true;
-            hint.textContent = "Detectada y seleccionada la salida analógica jack 3.5 mm.";
-        } else if (data.dispositivos.length === 0) {
-            select.innerHTML = '<option value="">No hay dispositivos ALSA</option>';
-            hint.textContent = "No se detectó ninguna tarjeta de audio.";
-        } else {
-            hint.textContent = "No se identificó automáticamente una salida Headphones.";
+            select.replaceChildren();
+            let analogOption = null;
+            data.dispositivos.forEach(device => {
+                const option = new Option(
+                    `Tarjeta ${device.card}: ${device.id}${device.analog35 ? " — jack 3.5 mm" : ""}`,
+                    String(device.card)
+                );
+                select.add(option);
+                if (device.analog35) analogOption = option;
+            });
+            if (analogOption) {
+                analogOption.selected = true;
+                hint.textContent = "Salida analógica jack 3.5 mm detectada y seleccionada.";
+            } else if (data.dispositivos.length === 0) {
+                select.add(new Option("No hay dispositivos ALSA", ""));
+                hint.textContent = "No se detectó ninguna tarjeta de audio.";
+            } else hint.textContent = "No se identificó automáticamente una salida Headphones.";
+        } catch (error) {
+            select.replaceChildren(new Option("Error al consultar ALSA", ""));
+            hint.textContent = error.message;
         }
-    } catch (error) {
-        select.innerHTML = '<option value="">Error al consultar ALSA</option>';
-        hint.textContent = error.message;
-    }
-}
-
-async function applyAudioDevice() {
-    const select = document.getElementById("audio-device");
-    if (select.value === "") {
-        statusElement.textContent = "Seleccione un dispositivo de audio";
-        return;
     }
 
-    const response = await fetch(
-        `${API}?op=audio-device&card=${encodeURIComponent(select.value)}`
-    );
-    showResult(await response.json());
-}
-
-async function applyAudioVolume() {
-    const slider = document.getElementById("audio-volume");
-    const volume = Number(slider.value);
-
-    if (!Number.isInteger(volume) || volume < 0 || volume > 100) {
-        statusElement.textContent = "El volumen debe estar entre 0 y 100";
-        return;
+    async function applyAudioDevice() {
+        const card = byId("audio-device").value;
+        if (card === "") { statusElement.textContent = "Seleccione un dispositivo de audio"; return; }
+        try { showResult(await window.aurabotApi.request({ op: "audio-device", card }, { post: true })); }
+        catch (error) { showResult({ ok: false, error: error.message }); }
     }
 
-    try {
-        const response = await fetch(
-            `${API}?op=audio-volume&volume=${encodeURIComponent(volume)}`
-        );
-        showResult(await response.json());
-    } catch (error) {
-        statusElement.textContent = "Error al ajustar el volumen";
-        resultElement.textContent = error.message;
-    }
-}
-
-function showResult(data) {
-
-    if (!data.ok) {
-
-        statusElement.textContent =
-            "La operación produjo un error";
-
-        resultElement.textContent =
-            JSON.stringify(data, null, 4);
-
-        return;
+    async function applyAudioVolume() {
+        const volume = Number(byId("audio-volume").value);
+        if (!Number.isInteger(volume) || volume < 0 || volume > 100) {
+            statusElement.textContent = "El volumen debe estar entre 0 y 100";
+            return;
+        }
+        try { showResult(await window.aurabotApi.request({ op: "audio-volume", volume }, { post: true })); }
+        catch (error) { showResult({ ok: false, error: error.message }); }
     }
 
-    statusElement.textContent =
-        `Operación: ${data.operacion}`;
-
-    resultElement.textContent =
-        JSON.stringify(data, null, 4);
-}
-
-
-document
-    .querySelectorAll("[data-operation]")
-    .forEach(button => {
-
-        button.addEventListener("click", () => {
-
-            const operation =
-                button.dataset.operation;
-
-            executeOperation(operation);
-        });
+    document.querySelectorAll("[data-operation]").forEach(button => {
+        button.addEventListener("click", () => executeOperation(button.dataset.operation));
     });
+    byId("audio-device-apply").addEventListener("click", applyAudioDevice);
+    byId("audio-device-refresh").addEventListener("click", loadAudioDevices);
+    byId("audio-previous").addEventListener("click", () => moveTrack(-1));
+    byId("audio-next").addEventListener("click", () => moveTrack(1));
+    byId("message-button").addEventListener("click", () => executeOperation("mensaje"));
 
-document
-    .getElementById("audio-device-apply")
-    .addEventListener("click", applyAudioDevice);
-
-document
-    .getElementById("audio-device-refresh")
-    .addEventListener("click", loadAudioDevices);
-
-const audioVolume = document.getElementById("audio-volume");
-const audioVolumeValue = document.getElementById("audio-volume-value");
-
-audioVolume.addEventListener("input", () => {
-    audioVolumeValue.textContent = `${audioVolume.value}%`;
-});
-audioVolume.addEventListener("change", applyAudioVolume);
-
-document.getElementById("audio-previous").addEventListener("click", () => moveTrack(-1));
-document.getElementById("audio-next").addEventListener("click", () => moveTrack(1));
-
-function fillPinSelectors() {
-    ["pwm-pin", "digital-pin"].forEach(id => {
-        const select = document.getElementById(id);
-        GPIO_PINS.forEach(pin => {
-            const option = document.createElement("option");
-            option.value = String(pin);
-            option.textContent = `GPIO ${pin}`;
-            select.appendChild(option);
-        });
-        select.value = "26";
+    const audioVolume = byId("audio-volume");
+    audioVolume.addEventListener("input", () => {
+        byId("audio-volume-value").textContent = `${audioVolume.value}%`;
     });
-}
+    audioVolume.addEventListener("change", applyAudioVolume);
 
-const pwmDuty = document.getElementById("pwm-duty");
-pwmDuty.addEventListener("input", () => {
-    document.getElementById("pwm-duty-value").textContent = `${pwmDuty.value}%`;
-});
-
-document.getElementById("pwm-start").addEventListener("click", () => callApi({
-    op: "pwm-set",
-    pin: document.getElementById("pwm-pin").value,
-    frequency: document.getElementById("pwm-frequency").value,
-    duty: pwmDuty.value
-}));
-document.getElementById("pwm-stop").addEventListener("click", () => callApi({
-    op: "pwm-stop",
-    pin: document.getElementById("pwm-pin").value
-}));
-document.getElementById("digital-on").addEventListener("click", () => callApi({
-    op: "digital-write",
-    pin: document.getElementById("digital-pin").value,
-    value: "1"
-}));
-document.getElementById("digital-off").addEventListener("click", () => callApi({
-    op: "digital-write",
-    pin: document.getElementById("digital-pin").value,
-    value: "0"
-}));
-
-
-document
-    .getElementById("message-button")
-    .addEventListener("click", () => {
-
-        executeOperation("mensaje");
+    window.addEventListener("aurabot:authenticated", () => {
+        statusElement.textContent = "Sesión iniciada. Esperando una operación…";
+        resultElement.textContent = "—";
+        void loadAudioDevices();
+        void loadPlaylist();
     });
-
-fillPinSelectors();
-loadAudioDevices();
-loadPlaylist();
+})();

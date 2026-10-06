@@ -9,9 +9,9 @@ recipes-hw/audio-config
 recipes-lib/audio
   └─ libaudio.so: controla mpg123 y volumen ALSA
 recipes-auraapp/aurabot-audio-server
-  └─ servicio SysVinit y FIFO /run/aurabot-audio/control
+  └─ aurabot-audio.service y FIFO /run/aurabot-audio/control
 partición 3 AURA_AUDIO (ext4)
-  └─ montada en /media/audio
+  └─ media-audio.mount la monta en /media/audio
 ```
 
 La imagen ya no contiene canciones. `flash_sd.sh` crea una partición ext4 de
@@ -25,9 +25,10 @@ La receta `recipes-lib/audio/audio_1.0.0.bb` genera `libaudio.so`: inicia
 `mpg123`, carga MP3 o playlists, pausa, detiene y ajusta volumen. El servidor se
 compila en otra receta con `DEPENDS = "audio"`; no duplica la implementación.
 
-El servicio `/etc/init.d/aurabot-audio` mantiene el servidor activo. El PCM se
-puede fijar mediante `AURABOT_AUDIO_DEVICE`; si no existe, el supervisor busca
-la tarjeta `Headphones` y finalmente usa `default`.
+`aurabot-audio.service` mantiene el servidor activo con
+`Restart=on-failure`. El PCM se puede fijar mediante
+`AURABOT_AUDIO_DEVICE`; si no existe, el servidor busca la tarjeta
+`Headphones` y finalmente usa `default`.
 
 Comandos actuales del FIFO:
 
@@ -51,9 +52,9 @@ mezclador: 0% web equivale a 50% ALSA y 100% web equivale a 100% ALSA.
 Prueba básica:
 
 ```bash
-/etc/init.d/audio-storage status
+systemctl status media-audio.mount
 mount | grep /media/audio
-/etc/init.d/aurabot-audio status
+systemctl status aurabot-audio.service
 printf 'TRACK 0\n' > /run/aurabot-audio/control
 printf 'VOLUME 60\n' > /run/aurabot-audio/control
 printf 'STOP\n' > /run/aurabot-audio/control

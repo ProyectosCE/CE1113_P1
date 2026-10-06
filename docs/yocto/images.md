@@ -7,8 +7,9 @@
 | `rpi-test-image` | Diagnóstico del BSP Raspberry Pi; solo `raspberrypi4`. |
 
 `ce1113-p1` parte de `core-image-minimal` y genera `ext4`, `tar.bz2` y
-`wic.bz2`. Los packagegroups `hw`, `webapp`, `api` y `auraapp` incorporan los
-mismos componentes que antes estaban distribuidos entre capas funcionales.
+`wic.bz2`. Los packagegroups `lib`, `hw` y `auraapp` incorporan las
+bibliotecas, configuración física y aplicaciones del producto. El packagegroup
+`test` se conserva para diagnóstico, pero no se instala en la imagen final.
 
 Artefactos importantes:
 

@@ -447,4 +447,8 @@ void hardware_get_capabilities(aurabot_capabilities_t *capabilities)
     capabilities->left_sensor = !!AURABOT_LEFT_SENSOR_ENABLE;
     capabilities->right_sensor = !!AURABOT_RIGHT_SENSOR_ENABLE;
     capabilities->audio = !!AURABOT_AUDIO_ENABLE;
+    capabilities->power_led = !!AURABOT_LED_POWER_ENABLE;
+    capabilities->manual_led = !!AURABOT_LED_MANUAL_ENABLE;
+    capabilities->autonomous_led = !!AURABOT_LED_AUTO_ENABLE;
+    capabilities->obstacle_led = !!AURABOT_LED_OBSTACLE_ENABLE;
 }

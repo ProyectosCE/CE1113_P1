@@ -6,7 +6,7 @@ inherit packagegroup
 RDEPENDS:${PN} = " \
     audio-storage \
     ce1113-audio-config \
-    packagegroup-machine-base \
+    udev-rules-rpi \
     packagegroup-base-alsa \
     wifi-config \
     linux-firmware-rpidistro-bcm43455 \
@@ -15,4 +15,5 @@ RDEPENDS:${PN} = " \
     kernel-module-brcmfmac-wcc \
     wpa-supplicant \
     wireless-regdb \
+    systemd-analyze \
 "

@@ -4,8 +4,8 @@
     const byId = id => document.getElementById(id);
     const modeSwitch = byId("robot-mode");
     const moveButtons = [...document.querySelectorAll("[data-drive]")];
-    // Identifica esta página, no autentica a un usuario. Cada pestaña obtiene
-    // un token nuevo, incluso cuando el navegador duplica una pestaña.
+    // La cookie autentica al usuario. Este token distinto identifica qué
+    // pestaña posee la concesión temporal de conducción manual.
     const bytes = crypto.getRandomValues(new Uint8Array(32));
     const token = [...bytes].map(value => value.toString(16).padStart(2, "0")).join("");
     let status = null;
@@ -18,19 +18,21 @@
     let map = null;
     let heartbeatPending = false;
     let mutationRevision = 0;
+    let polling = false;
+    let pollTimer = null;
 
     async function request(parameters, post = false) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 1500);
-        const body = new URLSearchParams(parameters);
         try {
-            const response = await fetch(post ? endpoint : `${endpoint}?${body}`, {
-                method: post ? "POST" : "GET", body: post ? body : undefined,
-                cache: "no-store", signal: controller.signal
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return await response.json();
+            return await window.aurabotApi.request(parameters, { post, signal: controller.signal });
         } finally { clearTimeout(timer); }
+    }
+
+    function updateConnectionIndicator() {
+        const chip = byId("connection-chip");
+        chip.className = `chip ${connected ? "online" : "offline"}`;
+        chip.innerHTML = `<span class="status-dot"></span>${connected ? "En línea" : "Sin conexión"}`;
     }
 
     function refreshControls() {
@@ -40,7 +42,7 @@
         byId("robot-claim").disabled = !manual || ownsControl || status?.control_busy || commandPending;
         byId("robot-release").disabled = !ownsControl || commandPending;
         byId("robot-stop").disabled = !ownsControl;
-        const hasMotor = status?.capabilities.motors.some(Boolean);
+        const hasMotor = status?.capabilities?.motors?.some(Boolean) ?? false;
         moveButtons.forEach(button => { button.disabled = !manual || !ownsControl || !hasMotor; });
         byId("robot-owner").textContent = !connected ? "Sin conexión" :
             ownsControl ? "Esta pestaña tiene el control" :
@@ -48,6 +50,7 @@
         byId("robot-hardware").textContent = hasMotor ?
             "Mantenga pulsada una dirección para mover; al soltar se detiene." :
             "Motores deshabilitados en la configuración de hardware; puede probar sensores y LEDs.";
+        updateConnectionIndicator();
     }
 
     function releaseBeacon() {
@@ -139,6 +142,8 @@
             !data.capabilities.motors[index] ? "Deshabilitado" : directionNames[value] ?? "Desconocida").join(" / ");
         byId("robot-sensors").textContent = data.sensors.map((value, index) =>
             !data.capabilities.sensors[index] ? "Deshabilitado" : value ? "Obstáculo" : "Libre").join(" / ");
+        byId("robot-leds").textContent = data.leds.map((value, index) =>
+            !data.capabilities.leds[index] ? "Deshabilitado" : value ? "Encendido" : "Apagado").join(" / ");
         byId("robot-pose").textContent = `${data.pose.x_mm / 10} cm, ${data.pose.y_mm / 10} cm · ${(data.pose.heading_mrad / 1000).toFixed(3)} rad`;
         byId("robot-audio").textContent = data.capabilities.audio ?
             `${["Detenido", "Reproduciendo", "Pausado", "Error"][data.audio.state]} · pista ${data.audio.track} · volumen ${data.audio.volume} %` : "Deshabilitado";
@@ -158,6 +163,8 @@
     // Un único ciclo sin peticiones solapadas; reintentar también permite
     // recuperar la pantalla cuando AuraBot o la red vuelven a estar disponibles.
     async function poll() {
+        if (!window.aurabotApi?.authenticated) { polling = false; return; }
+        polling = true;
         try {
             if (!document.hidden) {
                 const revisionBeforeRead = mutationRevision;
@@ -182,7 +189,14 @@
             byId("robot-state").textContent = `Sin conexión: ${error.message}`;
             byId("robot-updated").textContent = "Lecturas anteriores; esperando reconexión";
             refreshControls();
-        } finally { setTimeout(poll, connected ? 40 : 1000); }
+        } finally {
+            if (window.aurabotApi?.authenticated) pollTimer = setTimeout(poll, connected ? 250 : 1000);
+            else polling = false;
+        }
+    }
+
+    function startPolling() {
+        if (!polling && window.aurabotApi?.authenticated) void poll();
     }
 
     byId("robot-claim").addEventListener("click", async () => {
@@ -274,6 +288,18 @@
         if (document.hidden) { releaseBeacon(); forgetControl(); }
     });
     window.addEventListener("pagehide", () => { releaseBeacon(); forgetControl(); });
+    window.addEventListener("aurabot:authenticated", startPolling);
+    window.addEventListener("aurabot:unauthenticated", () => {
+        if (pollTimer !== null) clearTimeout(pollTimer);
+        pollTimer = null;
+        polling = false;
+        connected = false;
+        forgetControl();
+    });
+    window.addEventListener("aurabot:before-logout", event => {
+        if (!ownsControl) return;
+        event.detail.waitUntil(command("robot-release", {}, true).finally(forgetControl));
+    });
     refreshControls();
-    void poll();
+    startPolling();
 })();

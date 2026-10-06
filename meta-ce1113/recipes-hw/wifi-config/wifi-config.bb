@@ -4,7 +4,8 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 
 SRC_URI = " \
     file://wpa_supplicant.conf \
-    file://wifi-init.sh \
+    file://aurabot-wifi.service \
+    file://aurabot-wifi-dhcp.service \
 "
 
 RDEPENDS:${PN} += " \
@@ -15,24 +16,26 @@ RDEPENDS:${PN} += " \
 
 S = "${WORKDIR}"
 
-inherit update-rc.d
-
-INITSCRIPT_NAME = "wifi-init"
-INITSCRIPT_PARAMS = "defaults 99"
+inherit systemd
+SYSTEMD_SERVICE:${PN} = "aurabot-wifi.service aurabot-wifi-dhcp.service"
+SYSTEMD_AUTO_ENABLE:${PN} = "enable"
 
 do_install() {
     install -d ${D}${sysconfdir}/wpa_supplicant
-    install -d ${D}${sysconfdir}/init.d
+    install -d ${D}${systemd_system_unitdir}
 
     install -m 0600 \
         ${WORKDIR}/wpa_supplicant.conf \
         ${D}${sysconfdir}/wpa_supplicant/wpa_supplicant.conf
 
-    install -m 0755 ${WORKDIR}/wifi-init.sh \
-        ${D}${sysconfdir}/init.d/wifi-init
+    install -m 0644 ${WORKDIR}/aurabot-wifi.service \
+        ${D}${systemd_system_unitdir}/aurabot-wifi.service
+    install -m 0644 ${WORKDIR}/aurabot-wifi-dhcp.service \
+        ${D}${systemd_system_unitdir}/aurabot-wifi-dhcp.service
 }
 
 FILES:${PN} += " \
     ${sysconfdir}/wpa_supplicant \
-    ${sysconfdir}/init.d \
+    ${systemd_system_unitdir}/aurabot-wifi.service \
+    ${systemd_system_unitdir}/aurabot-wifi-dhcp.service \
 "

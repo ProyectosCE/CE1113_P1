@@ -49,13 +49,13 @@ while IFS= read -r directory; do
     esac
 done < <(find meta-ce1113/recipes-lib -mindepth 1 -maxdepth 1 -type d | sort)
 
-for component in app-operaciones prueba-encoder; do
+for component in app-operaciones encoder-count prueba-encoder; do
     [[ -d "meta-ce1113/recipes-test/$component" ]] || \
         fail "falta la aplicación de prueba recipes-test/$component"
 done
 while IFS= read -r directory; do
     case "$(basename "$directory")" in
-        app-operaciones|prueba-encoder) ;;
+        app-operaciones|encoder-count|prueba-encoder) ;;
         *) fail "componente no permitido en recipes-test: $directory" ;;
     esac
 done < <(find meta-ce1113/recipes-test -mindepth 1 -maxdepth 1 -type d | sort)
@@ -197,8 +197,28 @@ while IFS= read -r media_file; do
 done < <(find meta-ce1113 -type f \( -iname '*.mp3' -o -iname '*.wav' -o -iname '*.flac' -o -iname '*.ogg' \) | sort)
 
 grep -q 'packagegroup-ce1113' meta-ce1113/recipes-core/images/ce1113-p1.bb || fail "ce1113-p1 debe instalar únicamente el packagegroup raíz"
-for group in lib test hw auraapp; do
+for group in lib hw auraapp; do
     grep -q "packagegroup-ce1113-$group" meta-ce1113/recipes-core/packagegroups/packagegroup-ce1113.bb || fail "el packagegroup raíz no incluye el área $group"
+done
+grep -q 'packagegroup-ce1113-test' meta-ce1113/recipes-core/packagegroups/packagegroup-ce1113.bb && \
+    fail 'la imagen de producto no debe instalar aplicaciones de prueba'
+
+# La imagen entregable usa systemd de extremo a extremo. Los procesos
+# persistentes delegan el reinicio al gestor y no conservan supervisores SysV.
+grep -q 'INIT_MANAGER = "systemd"' build.sh || \
+    fail 'build.sh debe configurar systemd como init manager'
+if rg -q 'inherit .*update-rc.d|/etc/init.d|aurabot-.*supervisor|webapp-httpd-supervisor' \
+    meta-ce1113 README.md docs; then
+    fail 'quedaron referencias activas a SysV o supervisores manuales'
+fi
+for unit in \
+    meta-ce1113/recipes-auraapp/aurabot/files/aurabot.service \
+    meta-ce1113/recipes-auraapp/aurabot-audio-server/files/aurabot-audio.service \
+    meta-ce1113/recipes-auraapp/webapp/files/webapp-httpd.service \
+    meta-ce1113/recipes-hw/wifi-config/files/aurabot-wifi.service \
+    meta-ce1113/recipes-hw/wifi-config/files/aurabot-wifi-dhcp.service; do
+    grep -q '^Restart=on-failure$' "$unit" || \
+        fail "la unidad no reinicia ante fallos: $unit"
 done
 
 

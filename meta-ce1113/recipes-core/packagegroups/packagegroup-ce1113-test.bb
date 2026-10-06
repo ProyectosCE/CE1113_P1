@@ -3,5 +3,6 @@ LICENSE = "MIT"
 inherit packagegroup
 RDEPENDS:${PN} = " \
     app-operaciones \
+    encoder-count \
     prueba-encoder \
 "

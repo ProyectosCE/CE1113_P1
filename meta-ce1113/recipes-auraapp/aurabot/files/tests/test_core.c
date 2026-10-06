@@ -32,9 +32,13 @@ int main(void)
     assert(left > 0 && right > 0);
     fake_hardware_get_leds(&power_led, &manual_led, &auto_led, &obstacle_led);
     assert(power_led == 1 && manual_led == 0 && auto_led == 1 && obstacle_led == 0);
+    assert(state.public_status.power_led == 1 && state.public_status.manual_led == 0 &&
+           state.public_status.autonomous_led == 1 && state.public_status.obstacle_led == 0);
     assert(robot_controller_set_mode(&state, AURABOT_MODE_MANUAL) == AURABOT_OK);
     fake_hardware_get_leds(&power_led, &manual_led, &auto_led, &obstacle_led);
     assert(power_led == 1 && manual_led == 1 && auto_led == 0);
+    assert(state.public_status.power_led == 1 && state.public_status.manual_led == 1 &&
+           state.public_status.autonomous_led == 0);
     assert(state.public_status.mode == AURABOT_MODE_MANUAL);
     assert(state.public_status.auto_state == AURABOT_AUTO_INACTIVE);
     assert(robot_controller_claim(&state, owner) == AURABOT_OK);
@@ -57,6 +61,7 @@ int main(void)
     assert(state.public_status.auto_state == AURABOT_AUTO_REVERSE);
     fake_hardware_get_leds(&power_led, &manual_led, &auto_led, &obstacle_led);
     assert(obstacle_led == 1);
+    assert(state.public_status.obstacle_led == 1);
     fake_hardware_get_motor_speeds(&left, &right);
     assert(left < 0 && right < 0);
     fake_hardware_set_obstacles(0, 0);

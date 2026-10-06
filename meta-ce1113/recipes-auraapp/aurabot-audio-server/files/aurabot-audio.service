@@ -1,0 +1,22 @@
+[Unit]
+Description=AuraBot persistent audio service
+After=sound.target media-audio.mount
+Wants=sound.target media-audio.mount
+Before=aurabot.service
+StartLimitIntervalSec=60s
+StartLimitBurst=5
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/aurabot-audio
+ExecStart=/usr/bin/aurabot-audio-server
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=5s
+RuntimeDirectory=aurabot-audio
+RuntimeDirectoryMode=0750
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,21 @@
+[Unit]
+Description=AuraBot Wi-Fi association
+After=systemd-modules-load.service network-pre.target
+Before=network.target aurabot-wifi-dhcp.service
+Wants=network-pre.target
+StartLimitIntervalSec=60s
+StartLimitBurst=10
+
+[Service]
+Type=simple
+Environment=WIFI_INTERFACE=wlan0
+EnvironmentFile=-/etc/default/aurabot-wifi
+ExecStartPre=/sbin/ip link set ${WIFI_INTERFACE} up
+ExecStart=/usr/sbin/wpa_supplicant -i ${WIFI_INTERFACE} -c /etc/wpa_supplicant/wpa_supplicant.conf
+Restart=on-failure
+RestartSec=3s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -23,8 +23,9 @@ CE1113_P1/
 ```
 
 `meta-ce1113` contiene toda la metadata activa. La imagen `ce1113-p1` instala
-únicamente `packagegroup-ce1113`; este compone los grupos `lib`, `test`, `hw`
-y `auraapp`. Añadir una aplicación requiere modificar solo el packagegroup de
+únicamente `packagegroup-ce1113`; este compone los grupos `lib`, `hw` y
+`auraapp`. Las recetas de `test` permanecen disponibles para imágenes de
+laboratorio, pero no ocupan el rootfs del producto. Añadir una aplicación requiere modificar solo el packagegroup de
 su área, nunca la receta de imagen ni `layer.conf`.
 
 ## Categorías
@@ -32,7 +33,7 @@ su área, nunca la receta de imagen ni `layer.conf`.
 | Categoría | Responsabilidad |
 |---|---|
 | `recipes-lib` | Bibliotecas dinámicas `gpio`, `pwm`, `audio`, `leds` y `sensors` |
-| `recipes-test` | Pruebas aisladas: `app-operaciones` y `prueba-encoder` |
+| `recipes-test` | Pruebas aisladas: `app-operaciones`, `encoder-count` y `prueba-encoder` |
 | `recipes-hw` | Kernel, bootfiles, firmware, Wi-Fi, audio físico y montaje de música |
 | `recipes-auraapp` | Aplicación principal, servidor de audio, CGI, HTTP y frontend |
 
@@ -40,7 +41,7 @@ El contenido de las categorías funcionales es cerrado:
 
 ```text
 recipes-lib/      {libgpio,pwm,audio,leds,sensors}
-recipes-test/     {app-operaciones,prueba-encoder}
+recipes-test/     {app-operaciones,encoder-count,prueba-encoder}
 recipes-auraapp/  {aurabot,aurabot-audio-server,webapp}
 recipes-hw/       {audio-config,audio-storage,bootfiles,
                    brcmfmac-firmware-fix,busybox,linux,wifi-config}
@@ -52,7 +53,7 @@ cadenas de uso de bibliotecas dinámicas son:
 ```text
 aurabot -> libpwm.so.1 -> libgpio.so.1
 aurabot-audio-server -> libaudio.so.1
-webapp -> FIFO /run/aurabot-audio/control -> servidor -> libaudio.so.1
+webapp -> libaurabot.so.1 -> aurabot -> FIFO de audio -> servidor -> libaudio.so.1
 ```
 
 La webapp no abre ALSA directamente: delega la reproducción al servidor para
@@ -81,7 +82,8 @@ directorios `build-*`, `downloads` y `sstate-cache` son resultados locales.
 - Existe una sola imagen: `ce1113-p1` para `raspberrypi4`.
 - Todas las recetas usan minúsculas y nombres permitidos.
 - No existen `.bbappend` de la imagen; la composición usa packagegroups.
-- Los cuatro packagegroups (`lib`, `test`, `hw`, `auraapp`) forman el producto;
+- Los tres packagegroups (`lib`, `hw`, `auraapp`) forman el producto;
+  `test` es opcional y queda excluido de la imagen final;
   no existen grupos heredados `api` o `webapp`.
 - Solo `meta-ce1113` se activa; `meta-pwm` permanece excluida.
 - El código C/CMake se encuentra dentro de `files/` de una receta.
