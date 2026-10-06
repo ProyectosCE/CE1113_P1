@@ -9,6 +9,7 @@
 #include "json_response.h"
 #include <aurabot.h>
 #include "robot_web.h"
+#include "web_auth.h"
 
 static int get_integer(const char *query, const char *name, long minimum,
                        long maximum, int *result)
@@ -135,6 +136,9 @@ int main(void)
 
     sscanf(query, "op=%31[^&]&a=%f&b=%f", op, &a, &b);
 
+    if (web_auth_handle(op, query, is_post)) return 0;
+    if (!web_auth_require()) return 0;
+
     if (web_robot_handle(op, query, is_post)) return 0;
 
     if (strcmp(op, "audio-devices") == 0) {
@@ -149,6 +153,7 @@ int main(void)
 
     if (strcmp(op, "audio-track") == 0) {
         int track;
+        if (!is_post) { json_error("Use POST para controlar el audio"); return 0; }
         if (get_integer(query, "track", 0, 9999, &track) != 0) {
             json_error("Cancion no valida");
             return 0;
@@ -160,6 +165,8 @@ int main(void)
     if (strcmp(op, "audio-device") == 0) {
         int card;
 
+        if (!is_post) { json_error("Use POST para controlar el audio"); return 0; }
+
         if (get_selected_card(query, &card) != 0) {
             json_error("Tarjeta ALSA no valida");
             return 0;
@@ -170,6 +177,8 @@ int main(void)
 
     if (strcmp(op, "audio-volume") == 0) {
         int volume;
+
+        if (!is_post) { json_error("Use POST para controlar el audio"); return 0; }
 
         if (get_volume(query, &volume) != 0) {
             json_error("Volumen no valido; debe estar entre 0 y 100");
@@ -183,6 +192,7 @@ int main(void)
     if (strcmp(op, "audio-play") == 0 ||
         strcmp(op, "audio-pause") == 0 ||
         strcmp(op, "audio-stop") == 0) {
+        if (!is_post) { json_error("Use POST para controlar el audio"); return 0; }
         if (strcmp(op, "audio-play") == 0) {
             aurabot_status_t status;
             int result = aurabot_get_status(&status);
@@ -192,35 +202,6 @@ int main(void)
             robot_result(op, result);
         } else robot_result(op, strcmp(op, "audio-pause") == 0 ?
             aurabot_audio_pause() : aurabot_audio_stop());
-        return 0;
-    }
-
-    if (strcmp(op, "pwm-set") == 0 || strcmp(op, "pwm-stop") == 0) {
-        int pin;
-        if (get_integer(query, "pin", 0, 27, &pin) != 0) {
-            json_error("PIN PWM no valido; use GPIO 0 a 27");
-            return 0;
-        }
-        if (strcmp(op, "pwm-set") == 0) {
-            int frequency, duty;
-            if (get_integer(query, "frequency", 1, 10000, &frequency) != 0 ||
-                get_integer(query, "duty", 0, 100, &duty) != 0) {
-                json_error("Frecuencia o ciclo de trabajo no valido");
-                return 0;
-            }
-            robot_result(op, aurabot_pwm_set(pin, frequency, duty));
-        } else robot_result(op, aurabot_pwm_stop(pin));
-        return 0;
-    }
-
-    if (strcmp(op, "digital-write") == 0) {
-        int pin, value;
-        if (get_integer(query, "pin", 0, 27, &pin) != 0 ||
-            get_integer(query, "value", 0, 1, &value) != 0) {
-            json_error("PIN digital o estado no valido");
-            return 0;
-        }
-        robot_result(op, aurabot_digital_write(pin, value));
         return 0;
     }
 

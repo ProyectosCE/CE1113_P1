@@ -8,6 +8,8 @@ add_executable(operaciones.cgi
 	operaciones.cgi.c
 	json_response.c
     robot_web.c
+    web_auth.c
+    sha256.c
 )
 
 target_include_directories(operaciones.cgi PRIVATE

@@ -58,13 +58,12 @@ static int read_token(const char *query, unsigned char *token)
 void web_robot_result(const char *operation, int result)
 {
     const char *error;
-    int gpio = strncmp(operation, "pwm-", 4) == 0 || strcmp(operation, "digital-write") == 0;
     aurabot_disconnect();
     if (result == AURABOT_OK) { json_text(operation, "Comando aplicado"); return; }
     switch (result) {
     case AURABOT_ERR_NOT_OWNER: error = "Esta pestana no tiene el control manual"; break;
     case AURABOT_ERR_WRONG_MODE: error = "El robot debe estar en modo manual"; break;
-    case AURABOT_ERR_BUSY: error = gpio ? "GPIO reservado para el robot" : "Otra pestana tiene el control manual"; break;
+    case AURABOT_ERR_BUSY: error = "Otra pestana tiene el control manual"; break;
     case AURABOT_ERR_HARDWARE: error = "Error de hardware o dispositivo deshabilitado"; break;
     case AURABOT_ERR_UNAVAILABLE: error = "AuraBot no disponible"; break;
     case AURABOT_ERR_INVALID_ARGUMENT: error = "Parametros no validos"; break;

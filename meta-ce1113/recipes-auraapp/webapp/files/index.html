@@ -3,243 +3,212 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>AuraBot · Control</title>
-
+    <meta name="theme-color" content="#0f172a">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+    <title>AuraBot · Panel de control</title>
     <link rel="stylesheet" href="/style.css">
 </head>
-
 <body>
+    <!-- Sprite local: no requiere CDN ni acceso a Internet. -->
+    <svg class="icon-sprite" aria-hidden="true">
+        <symbol id="icon-robot" viewBox="0 0 24 24"><path d="M9 3h6M12 3V1M7 7h10a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3Zm1 5h.01M16 12h.01M8 16h8M4 11H2v5h2M20 11h2v5h-2"/></symbol>
+        <symbol id="icon-lock" viewBox="0 0 24 24"><path d="M7 10V7a5 5 0 0 1 10 0v3M6 10h12a2 2 0 0 1 2 2v8H4v-8a2 2 0 0 1 2-2Zm6 4v2"/></symbol>
+        <symbol id="icon-gauge" viewBox="0 0 24 24"><path d="M4.9 19a9 9 0 1 1 14.2 0M12 13l4-4M7 17h.01M17 17h.01M6.5 10h.01M17.5 10h.01M12 7h.01"/></symbol>
+        <symbol id="icon-control" viewBox="0 0 24 24"><path d="M8 6h8M12 2v8M8 18h8M12 14v8M6 8a4 4 0 1 0 0 8M18 8a4 4 0 1 1 0 8"/></symbol>
+        <symbol id="icon-map" viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Zm6-3v15M15 6v15"/></symbol>
+        <symbol id="icon-music" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13M9 9l11-2M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM17 19a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></symbol>
+        <symbol id="icon-calculator" viewBox="0 0 24 24"><path d="M5 2h14v20H5V2Zm3 3h8v4H8V5Zm0 8h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01"/></symbol>
+        <symbol id="icon-code" viewBox="0 0 24 24"><path d="m8 9-4 3 4 3M16 9l4 3-4 3M14 5l-4 14"/></symbol>
+        <symbol id="icon-terminal" viewBox="0 0 24 24"><path d="M4 5h16v14H4V5Zm3 4 3 3-3 3M12 15h5"/></symbol>
+        <symbol id="icon-stop" viewBox="0 0 24 24"><path d="M7 7h10v10H7V7Z"/></symbol>
+        <symbol id="icon-power" viewBox="0 0 24 24"><path d="M12 2v10M7.1 5.6a8 8 0 1 0 9.8 0"/></symbol>
+        <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M20 6v5h-5M4 18v-5h5M6.1 9a7 7 0 0 1 11.5-2.6L20 11M4 13l2.4 4.6A7 7 0 0 0 17.9 15"/></symbol>
+        <symbol id="icon-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7V5Z"/></symbol>
+        <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M7 5h3v14H7V5Zm7 0h3v14h-3V5Z"/></symbol>
+        <symbol id="icon-logout" viewBox="0 0 24 24"><path d="M10 4H4v16h6M14 8l4 4-4 4M8 12h10"/></symbol>
+        <symbol id="icon-alert" viewBox="0 0 24 24"><path d="M12 3 2 21h20L12 3Zm0 6v5M12 18h.01"/></symbol>
+    </svg>
 
-    <main class="container">
+    <section id="auth-screen" class="auth-screen" aria-labelledby="auth-title">
+        <div class="login-card">
+            <div class="brand-mark large"><svg class="icon"><use href="#icon-robot"/></svg></div>
+            <p class="eyebrow">Panel local</p>
+            <h1 id="auth-title">Acceder a AuraBot</h1>
+            <p class="login-copy">Inicie sesión para consultar el estado y enviar comandos al robot.</p>
+            <form id="auth-form" autocomplete="on">
+                <div class="field">
+                    <label for="auth-username">Usuario</label>
+                    <input id="auth-username" name="username" type="text" autocomplete="username"
+                        maxlength="32" required autofocus>
+                </div>
+                <div class="field">
+                    <label for="auth-password">Contraseña</label>
+                    <input id="auth-password" name="password" type="password"
+                        autocomplete="current-password" maxlength="256" required>
+                </div>
+                <p id="auth-message" class="form-message" aria-live="polite"></p>
+                <button id="auth-submit" type="submit" class="full-width">
+                    <svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg>
+                    Iniciar sesión
+                </button>
+            </form>
+            <p class="security-note"><svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg>
+                Sesión privada de 8 horas. Use una red Wi‑Fi de confianza: este servidor local no cifra el tráfico HTTP.</p>
+        </div>
+    </section>
 
-        <header class="header">
-            <h1>AuraBot</h1>
-            <p>
-                Estado en vivo, mapa aproximado y control del robot.
-            </p>
+    <div id="app-shell" hidden>
+        <header class="topbar">
+            <div class="topbar-inner">
+                <div class="brand">
+                    <span class="brand-mark"><svg class="icon"><use href="#icon-robot"/></svg></span>
+                    <span><strong>AuraBot</strong><small>Panel de control</small></span>
+                </div>
+                <div class="session-actions">
+                    <span id="connection-chip" class="chip neutral"><span class="status-dot"></span>Conectando</span>
+                    <span id="auth-user" class="user-label"></span>
+                    <button id="auth-logout" class="icon-button secondary" type="button" aria-label="Cerrar sesión" title="Cerrar sesión">
+                        <svg class="icon" aria-hidden="true"><use href="#icon-logout"/></svg>
+                    </button>
+                </div>
+            </div>
         </header>
 
-        <section class="card">
-            <h2>Modo del robot</h2>
-            <label for="robot-mode">
-                <input type="checkbox" id="robot-mode" role="switch" disabled>
-                Modo autónomo (apagado: manual)
-            </label>
-            <p id="robot-state" aria-live="polite">Consultando AuraBot...</p>
-            <button id="robot-emergency-stop" class="danger">Parada de emergencia</button>
-            <button id="robot-manual-mode" class="secondary" disabled>Seleccionar manual</button>
-            <p id="robot-updated">Esperando la primera lectura</p>
-            <dl class="telemetry">
-                <dt>Motores izquierdo / derecho</dt><dd id="robot-motors">—</dd>
-                <dt>Movimiento encoder izquierdo / derecho</dt><dd id="robot-movement" aria-live="polite">—</dd>
-                <dt>Dirección izquierda / derecha</dt><dd id="robot-direction">—</dd>
-                <dt>Sensores izquierdo / derecho</dt><dd id="robot-sensors">—</dd>
-                <dt>Posición y orientación</dt><dd id="robot-pose">—</dd>
-                <dt>Audio</dt><dd id="robot-audio">—</dd>
-            </dl>
-            <p>Las pruebas GPIO requieren modo manual y un pin libre, por ejemplo GPIO 26.</p>
-        </section>
-
-        <section class="card">
-            <h2>Control manual</h2>
-            <p id="robot-owner" aria-live="polite">Sin conexión</p>
-            <div class="button-grid two-buttons">
-                <button id="robot-claim" disabled>Tomar control</button>
-                <button id="robot-release" class="secondary" disabled>Liberar control</button>
-            </div>
-            <div class="field manual-speed">
-                <label for="robot-speed">Velocidad: <output id="robot-speed-value">35 %</output></label>
-                <input id="robot-speed" type="range" min="10" max="100" value="35" step="5">
-            </div>
-            <div class="drive-pad">
-                <button data-drive="forward" class="drive-forward" disabled>↑ Avanzar</button>
-                <button data-drive="left" class="drive-left" disabled>← Girar</button>
-                <button id="robot-stop" class="danger drive-stop" disabled>Detener</button>
-                <button data-drive="right" class="drive-right" disabled>Girar →</button>
-                <button data-drive="reverse" class="drive-reverse" disabled>↓ Retroceder</button>
-            </div>
-            <p id="robot-hardware">Consultando hardware...</p>
-            <small>Una pestaña controla a la vez. Si pierde la conexión, el control vence en 3 segundos y los motores se detienen.</small>
-        </section>
-
-        <section class="card">
-            <h2>Mapa aproximado</h2>
-            <canvas id="robot-map" width="400" height="400" role="img" aria-label="Mapa: azul recorrido, rojo obstáculo, gris desconocido y flecha para el robot"></canvas>
-            <p id="robot-map-revision">Esperando mapa...</p>
-            <small>Azul: recorrido · rojo: obstáculo · gris: desconocido · flecha: robot</small>
-        </section>
-
-        <section class="card">
-
-            <h2>Operaciones matemáticas</h2>
-
-            <div class="form-grid">
-
-                <div class="field">
-                    <label for="a">Valor A</label>
-                    <input
-                        type="number"
-                        id="a"
-                        value="5"
-                        step="any"
-                    >
+        <main class="container dashboard-grid">
+            <section class="card span-7" aria-labelledby="robot-status-title">
+                <div class="card-heading">
+                    <div><p class="eyebrow">Telemetría</p><h2 id="robot-status-title"><svg class="icon"><use href="#icon-gauge"/></svg>Estado del robot</h2></div>
+                    <span id="robot-state" class="state-pill" aria-live="polite">Consultando…</span>
                 </div>
-
-                <div class="field">
-                    <label for="b">Valor B</label>
-                    <input
-                        type="number"
-                        id="b"
-                        value="3"
-                        step="any"
-                    >
-                </div>
-
-            </div>
-
-            <div class="button-grid">
-
-                <button data-operation="suma">
-                    Suma
-                </button>
-
-                <button data-operation="resta">
-                    Resta
-                </button>
-
-                <button data-operation="mult">
-                    Multiplicación
-                </button>
-
-                <button data-operation="div">
-                    División
-                </button>
-
-                <button data-operation="sqrt">
-                    √ Raíz cuadrada
-                </button>
-
-            </div>
-
-        </section>
-
-
-        <section class="card">
-
-            <h2>Biblioteca</h2>
-
-            <button id="message-button">
-                Probar liboperaciones
-            </button>
-
-        </section>
-
-        <section class="card">
-
-            <h2>Reproducción de música</h2>
-            <p>Escoge una canción de la playlist y controla la reproducción.</p>
-
-            <div class="field">
-                <label for="audio-track">Canción</label>
-                <div class="track-picker">
-                    <button id="audio-previous" class="secondary" aria-label="Canción anterior">←</button>
-                    <select id="audio-track">
-                        <option value="">Cargando playlist...</option>
-                    </select>
-                    <button id="audio-next" class="secondary" aria-label="Canción siguiente">→</button>
-                </div>
-                <small id="audio-track-hint">Canciones disponibles en /media/audio.</small>
-            </div>
-
-            <div class="field">
-                <label for="audio-device">Dispositivo de salida</label>
-                <select id="audio-device">
-                    <option value="">Buscando dispositivos ALSA...</option>
-                </select>
-                <small id="audio-device-hint">
-                    La salida marcada como «jack 3.5 mm» es la salida analógica.
-                </small>
-            </div>
-
-            <div class="button-grid">
-                <button id="audio-device-apply">Usar dispositivo</button>
-                <button id="audio-device-refresh">Actualizar lista</button>
-            </div>
-
-            <div class="field audio-volume-field">
-                <label for="audio-volume">
-                    Volumen: <output id="audio-volume-value">0%</output>
-                </label>
-                <input id="audio-volume" type="range" min="0" max="100"
-                    step="1" value="0" aria-label="Volumen del jack analógico">
-                <small>0% corresponde al nivel físico 50%; 100% corresponde al nivel físico 100%.</small>
-            </div>
-
-            <div class="button-grid">
-                <button data-operation="audio-play">Play</button>
-                <button data-operation="audio-pause">Pausa</button>
-                <button data-operation="audio-stop">Stop</button>
-            </div>
-
-        </section>
-
-        <section class="card">
-            <h2>Control PWM</h2>
-            <p>Configura una señal PWM por software sobre un GPIO.</p>
-            <div class="form-grid three-columns">
-                <div class="field">
-                    <label for="pwm-pin">PIN (GPIO BCM)</label>
-                    <select id="pwm-pin"></select>
-                </div>
-                <div class="field">
-                    <label for="pwm-frequency">Frecuencia (Hz)</label>
-                    <input id="pwm-frequency" type="number" min="1" max="10000" value="100" step="1">
-                </div>
-                <div class="field">
-                    <label for="pwm-duty">Ciclo de trabajo</label>
-                    <div class="range-with-value">
-                        <input id="pwm-duty" type="range" min="0" max="100" value="50" step="1">
-                        <output id="pwm-duty-value">50%</output>
+                <div class="mode-panel">
+                    <label class="switch-row" for="robot-mode">
+                        <span><strong>Modo autónomo</strong><small>Desactive para control manual</small></span>
+                        <input type="checkbox" id="robot-mode" role="switch" disabled>
+                    </label>
+                    <div class="action-row">
+                        <button id="robot-emergency-stop" class="danger">
+                            <svg class="icon"><use href="#icon-alert"/></svg>Parada de emergencia
+                        </button>
+                        <button id="robot-manual-mode" class="secondary" disabled>Seleccionar manual</button>
                     </div>
                 </div>
-            </div>
-            <div class="button-grid two-buttons">
-                <button id="pwm-start">Activar PWM</button>
-                <button id="pwm-stop" class="danger">Detener PWM</button>
-            </div>
-        </section>
+                <p id="robot-updated" class="updated-text">Esperando la primera lectura</p>
+                <dl class="telemetry">
+                    <div><dt>Motores</dt><dd id="robot-motors">—</dd></div>
+                    <div><dt>Movimiento de encoders</dt><dd id="robot-movement" aria-live="polite">—</dd></div>
+                    <div><dt>Dirección</dt><dd id="robot-direction">—</dd></div>
+                    <div><dt>Sensores</dt><dd id="robot-sensors">—</dd></div>
+                    <div><dt>Posición y orientación</dt><dd id="robot-pose">—</dd></div>
+                    <div><dt>Audio</dt><dd id="robot-audio">—</dd></div>
+                </dl>
+            </section>
 
-        <section class="card">
-            <h2>PIN digital</h2>
-            <p>Selecciona un GPIO y establece su salida en encendido o apagado.</p>
-            <div class="field">
-                <label for="digital-pin">PIN (GPIO BCM)</label>
-                <select id="digital-pin"></select>
-            </div>
-            <div class="button-grid two-buttons">
-                <button id="digital-on">Encender</button>
-                <button id="digital-off" class="danger">Apagar</button>
-            </div>
-        </section>
+            <section class="card span-5" aria-labelledby="manual-title">
+                <div class="card-heading">
+                    <div><p class="eyebrow">Conducción</p><h2 id="manual-title"><svg class="icon"><use href="#icon-control"/></svg>Control manual</h2></div>
+                </div>
+                <p id="robot-owner" class="owner-state" aria-live="polite">Sin conexión</p>
+                <div class="button-grid two-buttons compact-top">
+                    <button id="robot-claim" disabled>Tomar control</button>
+                    <button id="robot-release" class="secondary" disabled>Liberar</button>
+                </div>
+                <div class="field manual-speed">
+                    <label for="robot-speed">Velocidad <output id="robot-speed-value">35 %</output></label>
+                    <input id="robot-speed" type="range" min="10" max="100" value="35" step="5">
+                </div>
+                <div class="drive-pad" aria-label="Direcciones del robot">
+                    <button data-drive="forward" class="drive-forward" disabled aria-label="Avanzar">↑<span>Avanzar</span></button>
+                    <button data-drive="left" class="drive-left" disabled aria-label="Girar a la izquierda">←<span>Izquierda</span></button>
+                    <button id="robot-stop" class="danger drive-stop" disabled aria-label="Detener"><svg class="icon"><use href="#icon-stop"/></svg><span>Detener</span></button>
+                    <button data-drive="right" class="drive-right" disabled aria-label="Girar a la derecha">→<span>Derecha</span></button>
+                    <button data-drive="reverse" class="drive-reverse" disabled aria-label="Retroceder">↓<span>Retroceder</span></button>
+                </div>
+                <p id="robot-hardware" class="helper-text">Consultando hardware…</p>
+                <small>Solo una pestaña controla el robot. Si se pierde la conexión, los motores se detienen en 3 segundos.</small>
+            </section>
 
+            <section class="card span-5 map-card" aria-labelledby="map-title">
+                <div class="card-heading">
+                    <div><p class="eyebrow">Navegación</p><h2 id="map-title"><svg class="icon"><use href="#icon-map"/></svg>Mapa aproximado</h2></div>
+                </div>
+                <div class="map-frame"><canvas id="robot-map" width="400" height="400" role="img" aria-label="Mapa del entorno y posición del robot"></canvas></div>
+                <p id="robot-map-revision" class="updated-text">Esperando mapa…</p>
+                <div class="map-legend" aria-label="Leyenda"><span><i class="visited"></i>Recorrido</span><span><i class="obstacle"></i>Obstáculo</span><span><i class="unknown"></i>Desconocido</span></div>
+            </section>
 
-        <section class="card result-card">
+            <section class="card span-7" aria-labelledby="audio-title">
+                <div class="card-heading">
+                    <div><p class="eyebrow">Multimedia</p><h2 id="audio-title"><svg class="icon"><use href="#icon-music"/></svg>Reproducción de música</h2></div>
+                </div>
+                <div class="field">
+                    <label for="audio-track">Canción</label>
+                    <div class="track-picker">
+                        <button id="audio-previous" class="secondary square-button" aria-label="Canción anterior">←</button>
+                        <select id="audio-track"><option value="">Cargando playlist…</option></select>
+                        <button id="audio-next" class="secondary square-button" aria-label="Canción siguiente">→</button>
+                    </div>
+                    <small id="audio-track-hint">Canciones disponibles en /media/audio.</small>
+                </div>
+                <div class="field field-spaced">
+                    <label for="audio-device">Dispositivo de salida</label>
+                    <select id="audio-device"><option value="">Buscando dispositivos ALSA…</option></select>
+                    <small id="audio-device-hint">La opción «jack 3.5 mm» corresponde a la salida analógica.</small>
+                </div>
+                <div class="button-grid two-buttons compact-top">
+                    <button id="audio-device-apply">Usar dispositivo</button>
+                    <button id="audio-device-refresh" class="secondary"><svg class="icon"><use href="#icon-refresh"/></svg>Actualizar lista</button>
+                </div>
+                <div class="field audio-volume-field">
+                    <label for="audio-volume">Volumen <output id="audio-volume-value">0%</output></label>
+                    <input id="audio-volume" type="range" min="0" max="100" step="1" value="0" aria-label="Volumen del jack analógico">
+                    <small>La escala web utiliza el rango físico útil del 50 % al 100 %.</small>
+                </div>
+                <div class="button-grid three-buttons">
+                    <button data-operation="audio-play"><svg class="icon"><use href="#icon-play"/></svg>Reproducir</button>
+                    <button data-operation="audio-pause" class="secondary"><svg class="icon"><use href="#icon-pause"/></svg>Pausa</button>
+                    <button data-operation="audio-stop" class="danger"><svg class="icon"><use href="#icon-stop"/></svg>Detener</button>
+                </div>
+            </section>
 
-            <h2>Resultado</h2>
+            <section class="card span-7" aria-labelledby="math-title">
+                <div class="card-heading">
+                    <div><p class="eyebrow">Herramientas</p><h2 id="math-title"><svg class="icon"><use href="#icon-calculator"/></svg>Operaciones matemáticas</h2></div>
+                </div>
+                <div class="form-grid">
+                    <div class="field"><label for="a">Valor A</label><input type="number" id="a" value="5" step="any"></div>
+                    <div class="field"><label for="b">Valor B</label><input type="number" id="b" value="3" step="any"></div>
+                </div>
+                <div class="button-grid math-buttons">
+                    <button data-operation="suma">Sumar</button>
+                    <button data-operation="resta">Restar</button>
+                    <button data-operation="mult">Multiplicar</button>
+                    <button data-operation="div">Dividir</button>
+                    <button data-operation="sqrt" class="secondary">√ Raíz de A</button>
+                </div>
+            </section>
 
-            <div id="status" class="status">
-                Esperando una operación...
-            </div>
+            <section class="card span-5 library-card" aria-labelledby="library-title">
+                <div class="card-heading">
+                    <div><p class="eyebrow">Diagnóstico</p><h2 id="library-title"><svg class="icon"><use href="#icon-code"/></svg>Biblioteca</h2></div>
+                </div>
+                <p>Compruebe la comunicación entre el CGI y la biblioteca de operaciones.</p>
+                <button id="message-button" class="full-width"><svg class="icon"><use href="#icon-terminal"/></svg>Probar liboperaciones</button>
+            </section>
 
-            <pre id="result">—</pre>
+            <section class="card result-card span-12" aria-labelledby="result-title">
+                <div class="card-heading">
+                    <div><p class="eyebrow">Actividad</p><h2 id="result-title"><svg class="icon"><use href="#icon-terminal"/></svg>Último resultado</h2></div>
+                </div>
+                <div id="status" class="status" aria-live="polite">Esperando una operación…</div>
+                <pre id="result">—</pre>
+            </section>
+        </main>
+        <footer>Interfaz local AuraBot · Recursos integrados para funcionamiento sin Internet</footer>
+    </div>
 
-        </section>
-
-    </main>
-
+    <script src="/auth.js"></script>
     <script src="/app.js"></script>
     <script src="/robot-control.js"></script>
-
 </body>
 </html>
