@@ -49,13 +49,13 @@ while IFS= read -r directory; do
     esac
 done < <(find meta-ce1113/recipes-lib -mindepth 1 -maxdepth 1 -type d | sort)
 
-for component in app-operaciones prueba-encoder; do
+for component in app-operaciones encoder-count prueba-encoder; do
     [[ -d "meta-ce1113/recipes-test/$component" ]] || \
         fail "falta la aplicación de prueba recipes-test/$component"
 done
 while IFS= read -r directory; do
     case "$(basename "$directory")" in
-        app-operaciones|prueba-encoder) ;;
+        app-operaciones|encoder-count|prueba-encoder) ;;
         *) fail "componente no permitido en recipes-test: $directory" ;;
     esac
 done < <(find meta-ce1113/recipes-test -mindepth 1 -maxdepth 1 -type d | sort)
