@@ -142,6 +142,8 @@
             !data.capabilities.motors[index] ? "Deshabilitado" : directionNames[value] ?? "Desconocida").join(" / ");
         byId("robot-sensors").textContent = data.sensors.map((value, index) =>
             !data.capabilities.sensors[index] ? "Deshabilitado" : value ? "Obstáculo" : "Libre").join(" / ");
+        byId("robot-leds").textContent = data.leds.map((value, index) =>
+            !data.capabilities.leds[index] ? "Deshabilitado" : value ? "Encendido" : "Apagado").join(" / ");
         byId("robot-pose").textContent = `${data.pose.x_mm / 10} cm, ${data.pose.y_mm / 10} cm · ${(data.pose.heading_mrad / 1000).toFixed(3)} rad`;
         byId("robot-audio").textContent = data.capabilities.audio ?
             `${["Detenido", "Reproduciendo", "Pausado", "Error"][data.audio.state]} · pista ${data.audio.track} · volumen ${data.audio.volume} %` : "Deshabilitado";

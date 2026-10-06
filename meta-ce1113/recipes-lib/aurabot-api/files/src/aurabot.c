@@ -182,6 +182,10 @@ int aurabot_get_status(aurabot_status_t *status)
     status->audio_state = (aurabot_audio_state_t)aurabot_wire_get_int(payload + offset); offset += 4U;
     READ_STATUS_INT(audio_volume_percent);
     READ_STATUS_INT(audio_track_index);
+    READ_STATUS_INT(power_led);
+    READ_STATUS_INT(manual_led);
+    READ_STATUS_INT(autonomous_led);
+    READ_STATUS_INT(obstacle_led);
 #undef READ_STATUS_INT
     return AURABOT_OK;
 }
@@ -205,7 +209,7 @@ int aurabot_set_mode_controlled(aurabot_mode_t mode,
 
 int aurabot_get_capabilities(aurabot_capabilities_t *capabilities)
 {
-    unsigned char payload[28];
+    unsigned char payload[44];
     unsigned int size;
     int result;
     if (capabilities == NULL) return AURABOT_ERR_INVALID_ARGUMENT;
@@ -219,6 +223,10 @@ int aurabot_get_capabilities(aurabot_capabilities_t *capabilities)
     capabilities->left_sensor = aurabot_wire_get_int(payload + 16);
     capabilities->right_sensor = aurabot_wire_get_int(payload + 20);
     capabilities->audio = aurabot_wire_get_int(payload + 24);
+    capabilities->power_led = aurabot_wire_get_int(payload + 28);
+    capabilities->manual_led = aurabot_wire_get_int(payload + 32);
+    capabilities->autonomous_led = aurabot_wire_get_int(payload + 36);
+    capabilities->obstacle_led = aurabot_wire_get_int(payload + 40);
     return AURABOT_OK;
 }
 

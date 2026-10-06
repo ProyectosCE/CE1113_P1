@@ -60,7 +60,8 @@ La GUI selecciona solamente el dispositivo. Antes de escribir, el script:
 En el primer flash se crea y formatea `AURA_AUDIO`. En flashes posteriores se
 guarda su inicio/tamaño antes de escribir el WIC y se restaura la misma entrada
 en la tabla sin formatear, por lo que las canciones permanecen intactas. La
-imagen monta la partición por etiqueta en `/media/audio` mediante SysVinit. El script se detiene
+imagen monta la partición por etiqueta en `/media/audio` mediante la unidad
+systemd `media-audio.mount`. El script se detiene
 si la imagen crece hasta solapar la partición o si la geometría no es segura.
 La partición raíz conserva exactamente el tamaño definido y probado dentro del
 WIC. El espacio intermedio queda sin asignar deliberadamente: no se redimensiona

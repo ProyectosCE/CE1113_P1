@@ -66,6 +66,10 @@ typedef struct {
     aurabot_audio_state_t audio_state;
     int audio_volume_percent;
     int audio_track_index;
+    int power_led;
+    int manual_led;
+    int autonomous_led;
+    int obstacle_led;
 } aurabot_status_t;
 
 typedef struct {
@@ -81,6 +85,10 @@ typedef struct {
     int left_sensor;
     int right_sensor;
     int audio;
+    int power_led;
+    int manual_led;
+    int autonomous_led;
+    int obstacle_led;
 } aurabot_capabilities_t;
 
 int aurabot_connect(void);

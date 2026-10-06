@@ -30,7 +30,8 @@ static int show_status(void)
     if (result != AURABOT_OK) return print_error(result);
     printf("mode=%d auto=%d motors=%d,%d motor_movement=%d,%d "
            "movement_state=%s,%s motor_direction=%d,%d sensors=%d,%d "
-           "pose=%d,%d,%d owner=%d map=%u audio=%d volume=%d track=%d\n",
+           "pose=%d,%d,%d owner=%d map=%u audio=%d volume=%d track=%d "
+           "leds=%d,%d,%d,%d\n",
            status.mode, status.auto_state, status.left_speed,
            status.right_speed,
            status.left_motor_movement, status.right_motor_movement,
@@ -43,7 +44,8 @@ static int show_status(void)
            status.x_mm, status.y_mm, status.heading_mrad,
            status.manual_control_busy, status.map_revision,
            status.audio_state, status.audio_volume_percent,
-           status.audio_track_index);
+           status.audio_track_index, status.power_led, status.manual_led,
+           status.autonomous_led, status.obstacle_led);
     return EXIT_SUCCESS;
 }
 

@@ -1,0 +1,20 @@
+[Unit]
+Description=AuraBot robot control service
+After=aurabot-audio.service
+Wants=aurabot-audio.service
+StartLimitIntervalSec=60s
+StartLimitBurst=5
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/aurabot
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=5s
+RuntimeDirectory=aurabot
+RuntimeDirectoryMode=0750
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

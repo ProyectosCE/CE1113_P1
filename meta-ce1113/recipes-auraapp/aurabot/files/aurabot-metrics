@@ -1,0 +1,57 @@
+#!/bin/sh
+set -eu
+
+SERVICES="aurabot-audio.service aurabot.service webapp-httpd.service aurabot-wifi.service aurabot-wifi-dhcp.service"
+
+echo "AURABOT TARGET METRICS"
+echo "captured_at=$(date -Iseconds 2>/dev/null || date)"
+echo "kernel=$(uname -sr)"
+echo
+
+echo "[rootfs]"
+df -kP /
+echo "rootfs_used_kib=$(du -skx / 2>/dev/null | awk '{print $1}')"
+echo
+
+echo "[boot]"
+systemd-analyze time
+systemd-analyze critical-chain webapp-httpd.service
+echo
+
+echo "[memory]"
+free -b
+echo
+
+echo "[services]"
+for service in $SERVICES; do
+    systemctl show "$service" \
+        --property=Id,ActiveState,SubState,NRestarts,MemoryCurrent,CPUUsageNSec \
+        --no-pager
+done
+echo
+
+echo "[cpu_sample_5s]"
+CPU_SAMPLE="/run/aurabot-metrics-cpu.$$"
+trap 'rm -f "$CPU_SAMPLE"' EXIT INT TERM
+: > "$CPU_SAMPLE"
+for service in $SERVICES; do
+    value=$(systemctl show "$service" --property=CPUUsageNSec --value)
+    case "$value" in ''|*[!0-9]*) value=0 ;; esac
+    printf '%s %s\n' "$service" "$value" >> "$CPU_SAMPLE"
+done
+sleep 5
+while read -r service before; do
+    after=$(systemctl show "$service" --property=CPUUsageNSec --value)
+    case "$after" in ''|*[!0-9]*) after=0 ;; esac
+    delta=$((after - before))
+    [ "$delta" -ge 0 ] || delta=0
+    hundredths=$((delta / 500000))
+    printf '%s cpu_percent=%d.%02d\n' "$service" \
+        $((hundredths / 100)) $((hundredths % 100))
+done < "$CPU_SAMPLE"
+rm -f "$CPU_SAMPLE"
+trap - EXIT INT TERM
+echo
+
+echo "[processes]"
+ps

@@ -86,15 +86,20 @@ static void status_response(void)
         "\"sensors\":[%d,%d],\"pose\":{\"x_mm\":%d,\"y_mm\":%d,\"heading_mrad\":%d},"
         "\"control_busy\":%s,\"lease_ms\":%d,\"map_revision\":%u,"
         "\"audio\":{\"state\":%d,\"volume\":%d,\"track\":%d},"
-        "\"capabilities\":{\"motors\":[%d,%d],\"encoders\":[%d,%d],\"sensors\":[%d,%d],\"audio\":%d}}\n",
+        "\"leds\":[%d,%d,%d,%d],"
+        "\"capabilities\":{\"motors\":[%d,%d],\"encoders\":[%d,%d],\"sensors\":[%d,%d],"
+        "\"audio\":%d,\"leds\":[%d,%d,%d,%d]}}\n",
         status.mode, status.auto_state, status.left_speed, status.right_speed,
         status.left_motor_movement, status.right_motor_movement,
         status.left_motor_direction, status.right_motor_direction,
         status.left_obstacle, status.right_obstacle, status.x_mm, status.y_mm, status.heading_mrad,
         status.manual_control_busy ? "true" : "false", AURABOT_CONTROL_LEASE_MS, status.map_revision,
         status.audio_state, status.audio_volume_percent, status.audio_track_index,
+        status.power_led, status.manual_led, status.autonomous_led, status.obstacle_led,
         capabilities.left_motor, capabilities.right_motor, capabilities.left_encoder,
-        capabilities.right_encoder, capabilities.left_sensor, capabilities.right_sensor, capabilities.audio);
+        capabilities.right_encoder, capabilities.left_sensor, capabilities.right_sensor,
+        capabilities.audio, capabilities.power_led, capabilities.manual_led,
+        capabilities.autonomous_led, capabilities.obstacle_led);
     aurabot_disconnect();
 }
 

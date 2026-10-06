@@ -127,6 +127,8 @@ try {
     assert.deepEqual(moving.motor_direction, [1, 1]);
     assert.equal(moving.control_busy, true);
     assert.deepEqual(moving.capabilities.motors, [1, 1]);
+    assert.deepEqual(moving.capabilities.leds, [1, 1, 1, 1]);
+    assert.deepEqual(moving.leds, [1, 1, 0, 0]);
     assert.equal((await post("robot-heartbeat")).data.ok, true);
     assert.equal((await post("robot-stop")).data.ok, true);
     assert.deepEqual((await get("robot-status")).data.motors, [0, 0]);

@@ -63,6 +63,8 @@ void hardware_get_capabilities(aurabot_capabilities_t *capabilities)
     capabilities->left_encoder = capabilities->right_encoder = 1;
     capabilities->left_sensor = capabilities->right_sensor = 1;
     capabilities->audio = 1;
+    capabilities->power_led = capabilities->manual_led = 1;
+    capabilities->autonomous_led = capabilities->obstacle_led = 1;
 }
 int hardware_audio_set_device(int card) { return card >= 0 && card <= 31 ? 0 : -1; }
 

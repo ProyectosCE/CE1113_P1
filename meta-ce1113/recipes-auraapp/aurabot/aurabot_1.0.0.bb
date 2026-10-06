@@ -42,22 +42,21 @@ SRC_URI = " \
     file://tests/test_core.c \
     file://tests/test_map.c \
     file://tests/test_partial_hardware.c \
-    file://aurabot.init \
-    file://aurabot-supervisor \
+    file://aurabot.service \
+    file://aurabot-metrics \
 "
 S = "${WORKDIR}"
 
-inherit cmake update-rc.d
+inherit cmake systemd
 
-INITSCRIPT_NAME = "aurabot"
-INITSCRIPT_PARAMS = "defaults 75"
+SYSTEMD_SERVICE:${PN} = "aurabot.service"
+SYSTEMD_AUTO_ENABLE:${PN} = "enable"
 
 do_install:append() {
-    install -d ${D}${sysconfdir}/init.d ${D}${sbindir}
-    install -m 0755 ${WORKDIR}/aurabot.init \
-        ${D}${sysconfdir}/init.d/aurabot
-    install -m 0755 ${WORKDIR}/aurabot-supervisor \
-        ${D}${sbindir}/aurabot-supervisor
+    install -d ${D}${systemd_system_unitdir} ${D}${bindir}
+    install -m 0644 ${WORKDIR}/aurabot.service \
+        ${D}${systemd_system_unitdir}/aurabot.service
+    install -m 0755 ${WORKDIR}/aurabot-metrics ${D}${bindir}/aurabot-metrics
 }
 
-FILES:${PN} += "${sysconfdir}/init.d/aurabot ${sbindir}/aurabot-supervisor"
+FILES:${PN} += "${systemd_system_unitdir}/aurabot.service ${bindir}/aurabot-metrics"

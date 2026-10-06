@@ -50,10 +50,12 @@ por área:
 ```text
 packagegroup-ce1113
 ├── packagegroup-ce1113-lib
-├── packagegroup-ce1113-test
 ├── packagegroup-ce1113-hw
 └── packagegroup-ce1113-auraapp
 ```
+
+`packagegroup-ce1113-test` se conserva como opción de laboratorio, pero ya no
+forma parte del packagegroup raíz ni del rootfs entregable.
 
 Las categorías modernas son:
 
@@ -81,7 +83,7 @@ Las dependencias de ejecución quedan así:
 ```text
 aurabot -> libpwm.so.1 -> libgpio.so.1
 aurabot-audio-server -> libaudio.so.1
-webapp -> FIFO de control -> aurabot-audio-server -> libaudio.so.1
+webapp -> libaurabot.so.1 -> aurabot -> FIFO de audio -> aurabot-audio-server -> libaudio.so.1
 ```
 
 ## Implementación actual de GPIO y PWM

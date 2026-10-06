@@ -76,3 +76,23 @@ jobs:
           ctest --test-dir build-aurabot --output-on-failure
           cmake -S meta-ce1113/recipes-auraapp/aurabot-audio-server/files -B build-audio-server -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$prefix"
           cmake --build build-audio-server --parallel
+          cmake -S meta-ce1113/recipes-auraapp/webapp/files -B build-webapp -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$prefix"
+          cmake --build build-webapp --parallel
+      - name: Probar web autenticada con hardware simulado
+        shell: bash
+        run: |
+          set -euo pipefail
+          prefix="$RUNNER_TEMP/aurabot-root"
+          runtime="$RUNNER_TEMP/aurabot-runtime"
+          mkdir -p "$runtime"
+          cmake -S meta-ce1113/recipes-auraapp/aurabot/files -B build-aurabot-fake \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$prefix" \
+            -DAURABOT_FAKE_HARDWARE=ON \
+            -DAURABOT_RUNTIME_DIRECTORY_OVERRIDE="$runtime"
+          cmake --build build-aurabot-fake --parallel
+          node --check meta-ce1113/recipes-auraapp/webapp/files/app.js
+          node --check meta-ce1113/recipes-auraapp/webapp/files/auth.js
+          node --check meta-ce1113/recipes-auraapp/webapp/files/robot-control.js
+          LD_LIBRARY_PATH="$prefix/lib" node scripts/test-web-integration.mjs \
+            --daemon build-aurabot-fake/aurabot \
+            --cgi build-webapp/operaciones.cgi

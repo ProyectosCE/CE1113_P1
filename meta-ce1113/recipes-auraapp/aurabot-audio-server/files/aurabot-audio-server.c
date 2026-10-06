@@ -20,6 +20,30 @@ static char audio_device[96] = "default";
 
 static volatile sig_atomic_t running = 1;
 
+static void select_default_audio_device(void)
+{
+    for (int card = 0; card < 32; ++card) {
+        char card_path[64];
+        char card_id[64];
+        FILE *card_file;
+
+        snprintf(card_path, sizeof(card_path), "/proc/asound/card%d/id", card);
+        card_file = fopen(card_path, "r");
+        if (card_file == NULL) continue;
+        if (fgets(card_id, sizeof(card_id), card_file) == NULL) {
+            fclose(card_file);
+            continue;
+        }
+        fclose(card_file);
+        card_id[strcspn(card_id, "\r\n")] = '\0';
+        if (strstr(card_id, "Headphones") != NULL ||
+            strstr(card_id, "headphones") != NULL) {
+            snprintf(audio_device, sizeof(audio_device), "plughw:%s,0", card_id);
+            return;
+        }
+    }
+}
+
 static int play_playlist_track(long requested_index)
 {
     FILE *playlist;
@@ -160,7 +184,7 @@ int main(void)
     const char *configured_device = getenv("AURABOT_AUDIO_DEVICE");
     if (configured_device != NULL && configured_device[0] != '\0') {
         snprintf(audio_device, sizeof(audio_device), "%s", configured_device);
-    }
+    } else select_default_audio_device();
     if (IniciarSonido(audio_device) != 0) {
         fprintf(stderr, "No se pudo inicializar el audio AuraBot\n");
         close(poll_fd.fd);

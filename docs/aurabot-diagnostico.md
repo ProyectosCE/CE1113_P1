@@ -1,20 +1,21 @@
-# Diagnóstico en la Raspberry Pi con SysVinit
+# Diagnóstico en la Raspberry Pi con systemd
 
 Estos cambios requieren reconstruir la imagen e instalarla en la SD. El robot
-arranca en autónomo. Con el perfil completo puede mover los motores inmediatamente;
-hacer esa prueba con las ruedas levantadas. El perfil parcial actual mantiene los
-motores deshabilitados.
+arranca en autónomo y el perfil del producto habilita motores, encoders, ambos
+sensores, los cuatro LED y audio. Puede mover los motores inmediatamente: hacer
+la primera prueba con las ruedas levantadas.
 
-## Hardware conectado parcialmente
+## Perfil de hardware
 
 `hardware_config.h` contiene una constante `AURABOT_*_ENABLE` por dispositivo.
 Usar 1 para conectado y 0 para omitirlo. Los motores tienen un ENABLE para sus
 tres señales; cada infrarrojo, encoder y LED tiene el suyo. Audio también tiene
 un ENABLE para el acceso desde el controlador central.
 
-El perfil actual habilita solamente el infrarrojo derecho (GPIO BCM 24) y los
-cuatro LED. Los motores, encoders, infrarrojo izquierdo y audio están deshabilitados.
-Deshabilitar individualmente cualquier LED que no esté conectado.
+El perfil entregable habilita el infrarrojo izquierdo (GPIO BCM 9), el derecho
+(BCM 10), motores, encoders, audio y cuatro LED. Para una bancada parcial se
+puede sobrescribir cada `AURABOT_*_ENABLE` desde CMake; no se debe entregar esa
+configuración como imagen final.
 
 El infrarrojo usa `AURABOT_SENSOR_ACTIVE_LOW=1`: eléctricamente entrega 0 con
 obstáculo y 1 cuando está libre. La biblioteca invierte ese nivel para publicar
@@ -35,15 +36,16 @@ Para probar este perfil:
 aurabotctl status
 ```
 
-Con el infrarrojo libre se espera `sensors=0,0`; con un objeto, `sensors=0,1`.
-El LED rojo GPIO 17 debe seguir esa detección. Los motores se muestran como
-`motors=0,0`. Cada cambio de ENABLE requiere reconstruir e instalar la imagen.
+Con los infrarrojos libres se espera `sensors=0,0`; un objeto cambia a 1 el
+lado correspondiente. El LED de obstáculo GPIO 4 sigue la detección conjunta.
+Cada cambio de ENABLE requiere reconstruir e instalar la imagen.
 
 ## Estado y registros
 
 ```sh
 aurabotctl status
-tail -f /var/log/aurabot.log
+systemctl status aurabot.service
+journalctl -b -u aurabot.service -f
 ```
 
 `mode=1` es autónomo, `mode=2` manual y `mode=3` parada segura. `sensors=L,R`
@@ -58,9 +60,9 @@ mismo la dirección. Los LED usan numeración BCM:
 | GPIO | Indicación |
 | --- | --- |
 | 22 | Servicio activo |
-| 23 | Manual |
+| 17 | Manual |
 | 27 | Autónomo |
-| 17 | Obstáculo detectado en cualquiera de los dos sensores |
+| 4 | Obstáculo detectado en cualquiera de los dos sensores |
 
 En parada segura se apagan los indicadores de modo; el rojo sigue indicando
 la lectura de obstáculo. Si se ordena movimiento sin recibir ticks durante el
@@ -71,7 +73,7 @@ tiempo configurado, el robot entra en parada segura y registra el motivo.
 Ejecutar cada comando por separado, sin una barra invertida al final:
 
 ```sh
-/etc/init.d/aurabot stop
+systemctl stop aurabot.service
 /usr/bin/aurabot
 ```
 
@@ -80,7 +82,7 @@ significa que acepta conexiones; no es una consola interactiva. Se registran
 los cambios de estado. Después de Ctrl+C:
 
 ```sh
-/etc/init.d/aurabot start
+systemctl start aurabot.service
 ```
 
 Una segunda instancia es rechazada para evitar dos procesos controlando GPIO
@@ -102,8 +104,8 @@ pines de motores, sensores, encoders y LED permanecen reservados por AuraBot.
 ## Sensor y LED rojo
 
 Comparar `aurabotctl status` con el sensor libre y con un objeto cerca. Si
-`sensors` cambia a 1 pero el rojo sigue apagado, revisar el registro para
-errores de GPIO 17. La biblioteca ya evita reiniciar la dirección de salida
+`sensors` cambia a 1 pero el rojo sigue apagado, revisar el journal para
+errores de GPIO 4. La biblioteca ya evita reiniciar la dirección de salida
 en cada ciclo y actualiza todos los LED aunque uno falle.
 
 La polaridad permanece en `AURABOT_SENSOR_ACTIVE_LOW` de hardware_config.h.
@@ -114,11 +116,10 @@ una sola lectura.
 ## WiFi
 
 ```sh
-/etc/init.d/wifi-init status
+systemctl status aurabot-wifi.service aurabot-wifi-dhcp.service
 wpa_cli -i wlan0 status
 ip -4 addr show dev wlan0
-tail -40 /var/log/wifi-wpa.log
-tail -40 /var/log/wifi-dhcp.log
+journalctl -b -u aurabot-wifi.service -u aurabot-wifi-dhcp.service
 dmesg | tail -60
 ```
 
@@ -127,12 +128,12 @@ significa asociación completada. Si aparece COMPLETED sin IPv4, revisar DHCP
 y el router. Si no aparece COMPLETED, revisar asociación, señal y credenciales
 mediante los registros de wpa_supplicant. No publicar contraseñas.
 
-El arranque espera hasta 30 segundos por asociación y deja DHCP reintentando
-en segundo plano. El cliente conserva la renovación de la concesión. El
-script registra ambos procesos y evita duplicarlos en llamadas sucesivas.
+`aurabot-wifi.service` mantiene `wpa_supplicant` y
+`aurabot-wifi-dhcp.service` mantiene el cliente DHCP. systemd reinicia cada
+proceso si falla y el journal conserva su diagnóstico.
 
 ```sh
-/etc/init.d/wifi-init restart
+systemctl restart aurabot-wifi.service aurabot-wifi-dhcp.service
 ```
 
 Detener AuraBot no modifica la configuración WiFi ni sus enlaces de arranque.

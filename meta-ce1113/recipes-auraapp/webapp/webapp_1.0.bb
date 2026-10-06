@@ -10,7 +10,7 @@ DEPENDS += "aurabot-api"
 # Credenciales iniciales para desarrollo. En una imagen entregable deben
 # sobrescribirse en conf/local.conf; solo el hash resultante llega al rootfs.
 AURABOT_WEB_USERNAME ?= "admin"
-AURABOT_WEB_PASSWORD ?= "AuraBot!"
+AURABOT_WEB_PASSWORD ?= "AuraBot-CE1113!"
 AURABOT_WEB_AUTH_SALT ?= "CE1113-AuraBot-development-salt"
 AURABOT_WEB_AUTH_ITERATIONS ?= "60000"
 
@@ -32,13 +32,12 @@ SRC_URI = " \
     file://auth.js \
     file://robot-control.js \
     file://CMakeLists.txt \
-    file://webapp-httpd.init \
-    file://webapp-httpd-supervisor \
+    file://webapp-httpd.service \
 "
 
 S = "${WORKDIR}"
 
-inherit cmake update-rc.d
+inherit cmake systemd
 
 python do_generate_web_auth() {
     import hashlib
@@ -73,14 +72,14 @@ python do_generate_web_auth() {
 
 addtask generate_web_auth after do_unpack before do_install
 
-INITSCRIPT_NAME = "webapp-httpd"
-INITSCRIPT_PARAMS = "defaults 80"
+SYSTEMD_SERVICE:${PN} = "webapp-httpd.service"
+SYSTEMD_AUTO_ENABLE:${PN} = "enable"
 
 do_install:append() {
     install -d ${D}/www
     install -d ${D}/www/cgi-bin
     install -d ${D}${sysconfdir}/aurabot
-    install -d ${D}${sysconfdir}/init.d ${D}${sbindir}
+    install -d ${D}${systemd_system_unitdir}
 
     install -m 0644 ${WORKDIR}/index.html \
         ${D}/www/index.html
@@ -99,10 +98,8 @@ do_install:append() {
     install -m 0644 ${WORKDIR}/httpd.conf \
         ${D}/etc/httpd.conf
 
-    install -m 0755 ${WORKDIR}/webapp-httpd.init \
-        ${D}${sysconfdir}/init.d/webapp-httpd
-    install -m 0755 ${WORKDIR}/webapp-httpd-supervisor \
-        ${D}${sbindir}/webapp-httpd-supervisor
+    install -m 0644 ${WORKDIR}/webapp-httpd.service \
+        ${D}${systemd_system_unitdir}/webapp-httpd.service
 }
 
 FILES:${PN} += " \
@@ -115,8 +112,7 @@ FILES:${PN} += " \
     /www/cgi-bin/operaciones.cgi \
     /etc/httpd.conf \
     ${sysconfdir}/aurabot/web-auth.conf \
-    ${sysconfdir}/init.d/webapp-httpd \
-    ${sbindir}/webapp-httpd-supervisor \
+    ${systemd_system_unitdir}/webapp-httpd.service \
 "
 
 CONFFILES:${PN} += "${sysconfdir}/aurabot/web-auth.conf"

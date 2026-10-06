@@ -2,8 +2,8 @@
 #define AURABOT_HARDWARE_CONFIG_H
 
 /* Habilitación por dispositivo: 1 conectado, 0 omitido por completo.
- * Perfil inicial de pruebas: un infrarrojo y LED; motores/encoders/audio apagados.
- * Cambiar a 1 los dispositivos conectados antes de reconstruir la imagen. */
+ * El perfil predeterminado es el producto completo. Las bancadas parciales
+ * pueden sobrescribir estas macros al configurar CMake. */
 /* Habilita las tres señales del motor izquierdo (PWM, IN1 e IN2). */
 #ifndef AURABOT_LEFT_MOTOR_ENABLE
 #define AURABOT_LEFT_MOTOR_ENABLE 1
@@ -12,11 +12,11 @@
 #ifndef AURABOT_RIGHT_MOTOR_ENABLE
 #define AURABOT_RIGHT_MOTOR_ENABLE 1
 #endif
-/* Habilita la lectura del infrarrojo izquierdo, GPIO BCM 16. */
+/* Habilita la lectura del infrarrojo izquierdo, GPIO BCM 9. */
 #ifndef AURABOT_LEFT_SENSOR_ENABLE
 #define AURABOT_LEFT_SENSOR_ENABLE 1
 #endif
-/* Habilita la lectura del infrarrojo derecho, GPIO BCM 24. */
+/* Habilita la lectura del infrarrojo derecho, GPIO BCM 10. */
 #ifndef AURABOT_RIGHT_SENSOR_ENABLE
 #define AURABOT_RIGHT_SENSOR_ENABLE 1
 #endif
@@ -32,7 +32,7 @@
 #ifndef AURABOT_LED_POWER_ENABLE
 #define AURABOT_LED_POWER_ENABLE 1
 #endif
-/* Habilita el LED de modo manual, GPIO BCM 23. */
+/* Habilita el LED de modo manual, GPIO BCM 17. */
 #ifndef AURABOT_LED_MANUAL_ENABLE
 #define AURABOT_LED_MANUAL_ENABLE 1
 #endif
@@ -40,7 +40,7 @@
 #ifndef AURABOT_LED_AUTO_ENABLE
 #define AURABOT_LED_AUTO_ENABLE 1
 #endif
-/* Habilita el LED de obstáculo, GPIO BCM 17. */
+/* Habilita el LED de obstáculo, GPIO BCM 4. */
 #ifndef AURABOT_LED_OBSTACLE_ENABLE
 #define AURABOT_LED_OBSTACLE_ENABLE 1
 #endif

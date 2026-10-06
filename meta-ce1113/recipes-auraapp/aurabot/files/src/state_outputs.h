@@ -3,7 +3,7 @@
 
 #include "aurabot_state.h"
 
-int state_outputs_apply(const aurabot_state_t *state);
+int state_outputs_apply(aurabot_state_t *state);
 void state_outputs_disable(void);
 
 #endif

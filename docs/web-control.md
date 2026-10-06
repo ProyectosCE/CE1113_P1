@@ -65,7 +65,8 @@ antiguas y exige adquirir el control nuevamente. No envía heartbeat desde una
 pestaña oculta.
 
 Se muestran modo, estado autónomo, potencia aplicada a cada motor, detecciones,
-posición, orientación, propietario ocupado/libre, audio y hardware habilitado.
+posición, orientación, propietario ocupado/libre, audio, los cuatro LED y
+hardware habilitado.
 El mapa se descarga al cambiar su revisión y dibuja celdas desconocidas,
 recorridas y obstáculos, más la posición/orientación del robot. Cada celda mide
 10 cm; sigue siendo un mapa aproximado, no SLAM.
@@ -125,12 +126,12 @@ Cada petición CGI tiene su propia conexión; desconecta al terminar. La API act
 mantiene una conexión global por proceso y no es reentrante para varios hilos.
 Construir daemon, biblioteca y CGI juntos en la imagen.
 
-## Perfil parcial y despliegue
+## Perfil y despliegue
 
-El perfil actual deja motores y encoders deshabilitados: la web lo indica y
-deshabilita los botones de movimiento. Se pueden probar el sensor derecho,
-LED, polling, mapa, adquisición/liberación y cambio de modo. Habilitar los
-dispositivos conectados en hardware_config.h para probar movimiento físico.
+El perfil del producto habilita motores, encoders, ambos sensores, cuatro LED
+y audio. Para una bancada parcial, las opciones `AURABOT_*_ENABLE` permiten
+deshabilitar dispositivos al configurar CMake; la interfaz refleja esas
+capacidades y bloquea controles que no estén disponibles.
 
 ```sh
 ./build.sh
