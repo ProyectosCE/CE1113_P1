@@ -97,10 +97,8 @@ playlist. Al arrancar, `systemd` habilita automáticamente:
 
 | Unidad | Función | Recuperación |
 | --- | --- | --- |
-| `aurabot-wifi.timer` | Retrasa el AP hasta después del arranque inicial | Activación automática |
-| `aurabot-wifi.service` | AP WPA2 `AuraBot` en `192.168.4.1` | `Restart=on-failure` |
-| `aurabot-wifi-dhcp.service` | Direcciones para clientes del AP | `Restart=on-failure` |
-| `aurabot-captive-dns.service` | Envía nombres DNS al portal local | `Restart=on-failure` |
+| `aurabot-wifi.service` | Cliente WPA2 para la red configurada | `Restart=on-failure` |
+| `aurabot-wifi-dhcp.service` | Obtiene y renueva la dirección de red | `Restart=on-failure` |
 | `media-audio.mount` | Montaje de `AURA_AUDIO` | Reintento mediante systemd |
 | `aurabot-audio.service` | Reproductor persistente | `Restart=on-failure` |
 | `aurabot.service` | Navegación, mapa y hardware | `Restart=on-failure` |
@@ -115,12 +113,9 @@ systemctl show aurabot.service webapp-httpd.service -p Restart -p NRestarts
 journalctl -b -u aurabot.service -u webapp-httpd.service
 ```
 
-Conectarse a la red WPA2 `AuraBot` con la clave de desarrollo
-`AuraBot-Local-2026!` y abrir `http://192.168.4.1/`. La clave debe cambiarse en
-`wpa_supplicant.conf` para una imagen entregable. El DNS cautivo y las respuestas
-HTTP para rutas desconocidas permiten que muchos dispositivos muestren el portal
-automáticamente; el comportamiento exacto depende del sistema operativo del
-cliente. La interfaz permite cambiar de modo, conducir
+La Raspberry Pi se conecta como cliente WPA2 a la red configurada en
+`wpa_supplicant.conf` y obtiene su dirección mediante DHCP. Desde otro equipo de
+la misma red, abrir la dirección IP asignada a AuraBot. La interfaz permite cambiar de modo, conducir
 en manual, observar sensores, motores, mapa y LEDs, y controlar pista, volumen y
 dispositivo de audio. Los recursos visuales están dentro de la imagen y no usan
 CDN ni conexión a Internet.

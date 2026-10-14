@@ -1,8 +1,8 @@
 [Unit]
-Description=AuraBot local Wi-Fi access point
-After=multi-user.target systemd-modules-load.service
-Before=aurabot-wifi-dhcp.service aurabot-captive-dns.service
-Wants=aurabot-wifi-dhcp.service aurabot-captive-dns.service
+Description=AuraBot Wi-Fi client
+After=systemd-modules-load.service
+Before=network-online.target aurabot-wifi-dhcp.service
+Wants=aurabot-wifi-dhcp.service
 StartLimitIntervalSec=60s
 StartLimitBurst=10
 
@@ -10,10 +10,14 @@ StartLimitBurst=10
 Type=simple
 Environment=WIFI_INTERFACE=wlan0
 EnvironmentFile=-/etc/default/aurabot-wifi
+ExecStartPre=/sbin/ip address flush dev ${WIFI_INTERFACE}
 ExecStartPre=/sbin/ip link set ${WIFI_INTERFACE} up
-ExecStartPre=/sbin/ip address replace 192.168.4.1/24 dev ${WIFI_INTERFACE}
 ExecStart=/usr/sbin/wpa_supplicant -i ${WIFI_INTERFACE} -c /etc/wpa_supplicant/wpa_supplicant.conf
+ExecStopPost=/sbin/ip address flush dev ${WIFI_INTERFACE}
 Restart=on-failure
 RestartSec=3s
 StandardOutput=journal
 StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
