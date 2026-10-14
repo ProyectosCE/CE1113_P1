@@ -348,7 +348,12 @@ button.danger:hover:not(:disabled) { background: var(--danger-dark); box-shadow:
     background: #e2e8f0;
 }
 
-#robot-map { display: block; width: 100%; height: 100%; }
+#robot-map { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+#robot-map.dragging { cursor: grabbing; }
+#robot-map:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.32); outline-offset: -3px; }
+.map-toolbar { display: flex; gap: 6px; align-items: center; }
+.map-toolbar button { min-height: 34px; padding: 5px 10px; font-size: 0.76rem; }
+.map-toolbar .map-control { width: 34px; padding-inline: 0; font-size: 1.1rem; }
 
 .map-legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 0.72rem; }
 .map-legend span { display: inline-flex; align-items: center; gap: 5px; }

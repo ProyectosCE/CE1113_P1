@@ -31,7 +31,10 @@
 #define SESSION_HEX_SIZE (SESSION_BYTES * 2)
 #define SESSION_LIFETIME_SECONDS (8 * 60 * 60)
 #define MAX_USERNAME_SIZE 32
-#define MAX_PASSWORD_SIZE 72
+#define MIN_PASSWORD_CHARACTERS 4
+#define MAX_PASSWORD_CHARACTERS 12
+#define MAX_PASSWORD_BYTES (MAX_PASSWORD_CHARACTERS * 4)
+#define MAX_LEGACY_PASSWORD_BYTES 72
 #define MAX_ROLE_SIZE 8
 #define BCRYPT_COST 12
 
@@ -117,8 +120,22 @@ static int valid_role(const char *role)
 
 static int valid_password(const char *password)
 {
-    size_t size = strlen(password);
-    return size >= 12 && size <= MAX_PASSWORD_SIZE;
+    const unsigned char *input = (const unsigned char *)password;
+    size_t characters = 0U;
+
+    while (*input != '\0') {
+        unsigned int length;
+        if (*input < 0x80U) length = 1U;
+        else if (*input >= 0xc2U && *input <= 0xdfU) length = 2U;
+        else if (*input >= 0xe0U && *input <= 0xefU) length = 3U;
+        else if (*input >= 0xf0U && *input <= 0xf4U) length = 4U;
+        else return 0;
+        for (unsigned int index = 1U; index < length; ++index)
+            if ((input[index] & 0xc0U) != 0x80U) return 0;
+        input += length;
+        if (++characters > MAX_PASSWORD_CHARACTERS) return 0;
+    }
+    return characters >= MIN_PASSWORD_CHARACTERS;
 }
 
 static int url_parameter(const char *query, const char *name, char *output, size_t capacity)
@@ -450,7 +467,7 @@ static void list_users(void)
 
 static void create_user(const char *query)
 {
-    char username[MAX_USERNAME_SIZE + 1], password[MAX_PASSWORD_SIZE + 1];
+    char username[MAX_USERNAME_SIZE + 1], password[MAX_PASSWORD_BYTES + 1];
     char role[MAX_ROLE_SIZE + 1], password_hash[CRYPT_OUTPUT_SIZE];
     sqlite3 *database;
     sqlite3_stmt *statement = NULL;
@@ -555,14 +572,14 @@ static void update_user(const char *query, const auth_identity_t *administrator)
 static void reset_password(const char *query)
 {
     long long id;
-    char password[MAX_PASSWORD_SIZE + 1], password_hash[CRYPT_OUTPUT_SIZE];
+    char password[MAX_PASSWORD_BYTES + 1], password_hash[CRYPT_OUTPUT_SIZE];
     sqlite3 *database;
     sqlite3_stmt *statement = NULL;
     if (url_integer(query, "id", &id) != 0 ||
         url_parameter(query, "password", password, sizeof(password)) != 0 ||
         password_hash_create(password, password_hash) != 0) {
         memset(password, 0, sizeof(password));
-        json_error_status("400 Bad Request", "La contrasena debe tener entre 12 y 72 bytes"); return;
+        json_error_status("400 Bad Request", "La contrasena debe tener entre 4 y 12 caracteres"); return;
     }
     memset(password, 0, sizeof(password));
     database = database_open();
@@ -646,7 +663,7 @@ int web_auth_is_operator(void)
 
 int web_auth_handle(const char *operation, const char *query, int is_post)
 {
-    char username[MAX_USERNAME_SIZE + 1], password[MAX_PASSWORD_SIZE + 1];
+    char username[MAX_USERNAME_SIZE + 1], password[MAX_LEGACY_PASSWORD_BYTES + 1];
     char token[SESSION_HEX_SIZE + 1], csrf[SESSION_HEX_SIZE + 1];
     auth_identity_t identity;
     sqlite3 *database;

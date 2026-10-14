@@ -10,7 +10,7 @@ DEPENDS += "aurabot-api sqlite3 libxcrypt"
 # Cuenta inicial de desarrollo. La imagen contiene exclusivamente el hash
 # bcrypt; una imagen entregable debe sobrescribir usuario y hash.
 AURABOT_WEB_USERNAME ?= "admin"
-AURABOT_WEB_PASSWORD_HASH ?= "$2b$12$pVqNDRHrZ0E4cH/ga4DMTePmeJvoqRQiU6WCBv6J8k94G9004dqX."
+AURABOT_WEB_PASSWORD_HASH ?= "$2b$12$kR7JbG3QmN9sT2vX5zA8CeAeZWc7ZNo3Htk6VNpD.rBXRErdNIpb."
 
 SRC_URI = " \
     file://index.html \

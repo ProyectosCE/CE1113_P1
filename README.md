@@ -84,7 +84,7 @@ La imagen nunca necesita la contraseña en texto claro: recibe un hash bcrypt
 con costo 12. Al primer acceso se crea `/var/lib/aurabot-auth/users.db`; después,
 las cuentas y roles se administran desde el panel web de un administrador. El
 usuario inicial de desarrollo es `admin` y la contraseña
-`AuraBot-CE1113!`; deben cambiarse para una imagen entregable.
+`AuraBot1234`; deben cambiarse para una imagen entregable.
 
 ## Instalación y arranque
 

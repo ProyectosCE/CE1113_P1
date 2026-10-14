@@ -84,6 +84,15 @@ static void update_map(aurabot_state_t *state,
     state->public_status.map_revision = state->map.revision;
 }
 
+static void update_obstacle_audio(aurabot_state_t *state)
+{
+    int obstacle = state->public_status.left_obstacle ||
+        state->public_status.right_obstacle;
+    if (obstacle && !state->obstacle_audio_active)
+        audio_controller_event("obstacle");
+    state->obstacle_audio_active = obstacle;
+}
+
 static int motion_is_stalled(const aurabot_state_t *state,
                              const encoder_snapshot_t *encoders,
                              const struct timespec *now)
@@ -113,6 +122,7 @@ int robot_controller_tick(aurabot_state_t *state)
     }
     state->public_status.left_obstacle = sensors.left_obstacle;
     state->public_status.right_obstacle = sensors.right_obstacle;
+    update_obstacle_audio(state);
     state->public_status.left_motor_movement = encoders.left_movement;
     state->public_status.right_motor_movement = encoders.right_movement;
     state->public_status.left_motor_direction = encoders.left_direction;
@@ -156,9 +166,9 @@ int robot_controller_set_mode(aurabot_state_t *state, aurabot_mode_t mode)
     if (mode == AURABOT_MODE_AUTONOMOUS && hardware_autonomous_available()) {
         result = autonomous_enter(state);
         if (result != AURABOT_OK) return enter_safe_stop(state);
+        audio_controller_event("autonomous");
         result = autonomous_tick(state);
         if (result != AURABOT_OK) return enter_safe_stop(state);
-        audio_controller_event("autonomous");
     } else if (mode == AURABOT_MODE_MANUAL) {
         audio_controller_event("manual");
     } else {

@@ -130,8 +130,13 @@
             <section class="card span-5 map-card" aria-labelledby="map-title">
                 <div class="card-heading">
                     <div><p class="eyebrow">Navegación</p><h2 id="map-title"><svg class="icon"><use href="#icon-map"/></svg>Mapa aproximado</h2></div>
+                    <div class="map-toolbar" aria-label="Controles del mapa">
+                        <button id="map-zoom-out" class="secondary map-control" type="button" aria-label="Alejar mapa">−</button>
+                        <button id="map-reset" class="secondary map-reset" type="button">Centrar</button>
+                        <button id="map-zoom-in" class="secondary map-control" type="button" aria-label="Acercar mapa">+</button>
+                    </div>
                 </div>
-                <div class="map-frame"><canvas id="robot-map" width="400" height="400" role="img" aria-label="Mapa del entorno y posición del robot"></canvas></div>
+                <div class="map-frame"><canvas id="robot-map" width="400" height="400" role="img" tabindex="0" aria-label="Mapa del entorno y posición del robot. Arrastre para navegar y use la rueda para ampliar."></canvas></div>
                 <p id="robot-map-revision" class="updated-text">Esperando mapa…</p>
                 <div class="map-legend" aria-label="Leyenda"><span><i class="visited"></i>Recorrido</span><span><i class="obstacle"></i>Obstáculo</span><span><i class="unknown"></i>Desconocido</span></div>
             </section>
@@ -176,7 +181,7 @@
                 </div>
                 <form id="user-create-form" class="user-create-form" autocomplete="off">
                     <div class="field"><label for="new-username">Usuario</label><input id="new-username" maxlength="32" pattern="[A-Za-z0-9_.-]+" required></div>
-                    <div class="field"><label for="new-password">Contraseña</label><input id="new-password" type="password" minlength="12" maxlength="72" required></div>
+                    <div class="field"><label for="new-password">Contraseña</label><input id="new-password" type="password" minlength="4" maxlength="12" required></div>
                     <div class="field"><label for="new-role">Rol</label><select id="new-role"><option value="viewer">Visor</option><option value="operator">Operador</option><option value="admin">Admin</option></select></div>
                     <button type="submit">Añadir usuario</button>
                 </form>

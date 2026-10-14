@@ -47,7 +47,7 @@ Los cambios de rol, estado o contraseña invalidan las sesiones anteriores de
 esa cuenta. Los POST autenticados requieren además el token CSRF de la sesión.
 
 La receta incluye credenciales únicamente para desarrollo: usuario `admin` y
-contraseña `AuraBot-CE1113!`. Antes de construir una imagen entregable,
+contraseña `AuraBot1234`. Antes de construir una imagen entregable,
 sobrescribir al menos estas variables en `conf/local.conf`:
 
 ```bitbake
@@ -55,9 +55,11 @@ AURABOT_WEB_USERNAME = "admin"
 AURABOT_WEB_PASSWORD_HASH = "$2b$12$...hash-bcrypt-completo..."
 ```
 
-Las contraseñas aceptadas tienen entre 12 y 72 bytes. El archivo inicial se
+Las contraseñas aceptadas tienen entre 4 y 12 caracteres. El archivo inicial se
 instala como `/etc/aurabot/web-auth-bootstrap.conf`, modo `0600`, y contiene
 únicamente usuario, rol y hash bcrypt. Solo se usa para sembrar una base vacía.
+El inicio de sesión conserva compatibilidad con hashes de contraseñas antiguas
+más largas; al crear o restablecer una contraseña ya se exige el rango nuevo.
 
 Esta autenticación limita quién opera el robot y protege la contraseña
 almacenada, pero el BusyBox httpd actual sirve HTTP sin TLS: alguien capaz de
@@ -76,7 +78,10 @@ posición, orientación, propietario ocupado/libre, audio, los cuatro LED y
 hardware habilitado.
 El mapa se descarga al cambiar su revisión y dibuja celdas desconocidas,
 recorridas y obstáculos, más la posición/orientación del robot. Cada celda mide
-10 cm; sigue siendo un mapa aproximado, no SLAM.
+10 cm. La ventana transmitida comienza en 21 × 21 celdas y amplía sus límites
+según avanza el robot, dentro de una reserva máxima de 128 × 128 para mantener
+acotada la memoria. En el navegador se puede arrastrar, ampliar, alejar y volver
+a centrar; sigue siendo un mapa aproximado, no SLAM.
 
 El estado de audio representa las órdenes aceptadas por AuraBot; todavía no
 confirma fin de pista ni errores de reproducción del proceso de audio. Playlist,

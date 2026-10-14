@@ -2,9 +2,10 @@
 #define AURABOT_H
 
 #define AURABOT_OWNER_TOKEN_SIZE 32
-#define AURABOT_MAP_WIDTH 40
-#define AURABOT_MAP_HEIGHT 40
-#define AURABOT_MAP_CELLS (AURABOT_MAP_WIDTH * AURABOT_MAP_HEIGHT)
+#define AURABOT_MAP_MAX_WIDTH 128
+#define AURABOT_MAP_MAX_HEIGHT 128
+#define AURABOT_MAP_CELLS (AURABOT_MAP_MAX_WIDTH * AURABOT_MAP_MAX_HEIGHT)
+#define AURABOT_MAP_CELL_MM 100
 #define AURABOT_TRACK_NAME_SIZE 128
 #define AURABOT_CONTROL_LEASE_MS 3000
 
@@ -73,6 +74,10 @@ typedef struct {
 } aurabot_status_t;
 
 typedef struct {
+    unsigned int width;
+    unsigned int height;
+    int origin_x_mm;
+    int origin_y_mm;
     unsigned int revision;
     unsigned char cells[AURABOT_MAP_CELLS];
 } aurabot_map_snapshot_t;

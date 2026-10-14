@@ -129,6 +129,8 @@
 #define AURABOT_FULL_TURN_MICRORAD 6283185LL
 /* FIFO usado para enviar órdenes al servidor persistente de audio. */
 #define AURABOT_AUDIO_CONTROL_FIFO "/run/aurabot-audio/control"
+#define AURABOT_AUDIO_READY_RETRIES 20
+#define AURABOT_AUDIO_READY_RETRY_NS 50000000L
 /* Lista validada de pistas disponibles para el robot. */
 #define AURABOT_PLAYLIST_PATH "/media/audio/playlist.txt"
 

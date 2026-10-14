@@ -289,27 +289,36 @@ int aurabot_get_map(unsigned char *cells, unsigned int capacity,
     aurabot_map_snapshot_t map;
     int result;
     if (required_size == NULL) return AURABOT_ERR_INVALID_ARGUMENT;
-    *required_size = AURABOT_MAP_CELLS;
-    if (cells == NULL || capacity < AURABOT_MAP_CELLS) return AURABOT_ERR_INVALID_ARGUMENT;
     result = aurabot_get_map_snapshot(&map);
-    if (result == AURABOT_OK) memcpy(cells, map.cells, AURABOT_MAP_CELLS);
+    if (result != AURABOT_OK) return result;
+    *required_size = map.width * map.height;
+    if (cells == NULL || capacity < *required_size)
+        return AURABOT_ERR_INVALID_ARGUMENT;
+    memcpy(cells, map.cells, *required_size);
     return result;
 }
 
 int aurabot_get_map_snapshot(aurabot_map_snapshot_t *map)
 {
-    unsigned char payload[12 + AURABOT_MAP_CELLS];
+    unsigned char payload[20 + AURABOT_MAP_CELLS];
     unsigned int size;
+    unsigned int cell_count;
     int result;
     if (map == NULL) return AURABOT_ERR_INVALID_ARGUMENT;
     result = transact(AURABOT_CMD_GET_MAP, NULL, 0, payload, sizeof(payload), &size);
     if (result != AURABOT_OK) return result;
-    if (size != sizeof(payload) ||
-        aurabot_wire_get_uint(payload) != AURABOT_MAP_WIDTH ||
-        aurabot_wire_get_uint(payload + 4) != AURABOT_MAP_HEIGHT)
+    if (size < 20U) return AURABOT_ERR_PROTOCOL;
+    map->width = aurabot_wire_get_uint(payload);
+    map->height = aurabot_wire_get_uint(payload + 4);
+    map->origin_x_mm = aurabot_wire_get_int(payload + 8);
+    map->origin_y_mm = aurabot_wire_get_int(payload + 12);
+    map->revision = aurabot_wire_get_uint(payload + 16);
+    if (map->width == 0U || map->width > AURABOT_MAP_MAX_WIDTH ||
+        map->height == 0U || map->height > AURABOT_MAP_MAX_HEIGHT)
         return AURABOT_ERR_PROTOCOL;
-    map->revision = aurabot_wire_get_uint(payload + 8);
-    memcpy(map->cells, payload + 12, AURABOT_MAP_CELLS);
+    cell_count = map->width * map->height;
+    if (size != 20U + cell_count) return AURABOT_ERR_PROTOCOL;
+    memcpy(map->cells, payload + 20, cell_count);
     return AURABOT_OK;
 }
 

@@ -40,8 +40,8 @@
         enabled.checked = user.enabled;
         const password = document.createElement("input");
         password.type = "password";
-        password.minLength = 12;
-        password.maxLength = 72;
+        password.minLength = 4;
+        password.maxLength = 12;
         password.placeholder = "Nueva contraseña (opcional)";
 
         const actions = document.createElement("div");
@@ -69,7 +69,7 @@
         });
         reset.addEventListener("click", async () => {
             if (!password.reportValidity() || password.value.length === 0) {
-                showMessage("Escriba una contraseña de 12 a 72 caracteres.", true);
+                showMessage("Escriba una contraseña de 4 a 12 caracteres.", true);
                 password.focus();
                 return;
             }
