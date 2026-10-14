@@ -2,7 +2,6 @@
 // AURABOT_RUNTIME_DIRECTORY_OVERRIDE en /tmp, compartido por libaurabot.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -17,15 +16,12 @@ if (!process.argv.includes("--daemon") || !process.argv.includes("--cgi")) {
 }
 const assetRoot = fileURLToPath(new URL("../meta-ce1113/recipes-auraapp/webapp/files/", import.meta.url));
 const authRoot = mkdtempSync(join(tmpdir(), "aurabot-web-test-"));
-const authPath = join(authRoot, "web-auth.conf");
+const authPath = join(authRoot, "users.db");
+const bootstrapPath = join(authRoot, "web-auth-bootstrap.conf");
 const sessionPath = join(authRoot, "sessions");
-const authUsername = "admin", authPassword = "Test-AuraBot-2026!", authIterations = 1000;
-const authSalt = createHash("sha256").update("integration-test-salt").digest().subarray(0, 16);
-let authDigest = createHash("sha256").update(Buffer.concat([authSalt, Buffer.from(authPassword)])).digest();
-for (let index = 1; index < authIterations; ++index) {
-    authDigest = createHash("sha256").update(Buffer.concat([authDigest, authSalt])).digest();
-}
-writeFileSync(authPath, `${authUsername}:${authSalt.toString("hex")}:${authIterations}:${authDigest.toString("hex")}\n`, { mode: 0o600 });
+const authUsername = "admin", authPassword = "Test-AuraBot-2026!";
+const authHash = "$2b$12$FR6gKjCwEPYuvve8RuH4yeiRL7DN5NdTOLRP1BS/M0ycCrOAc8tYe";
+writeFileSync(bootstrapPath, `${authUsername}:admin:${authHash}\n`, { mode: 0o600 });
 const daemon = spawn(daemonPath, [], { stdio: ["ignore", "ignore", "pipe"] });
 const server = createServer(async (request, response) => {
     const url = new URL(request.url, "http://127.0.0.1");
@@ -45,7 +41,8 @@ const server = createServer(async (request, response) => {
     const body = Buffer.concat(chunks);
     const child = spawn(cgiPath, [], { env: { ...process.env, QUERY_STRING: url.search.slice(1),
         REQUEST_METHOD: request.method, CONTENT_LENGTH: String(body.length),
-        HTTP_COOKIE: request.headers.cookie || "", AURABOT_WEB_AUTH_FILE: authPath,
+        HTTP_COOKIE: request.headers.cookie || "", AURABOT_WEB_AUTH_DB: authPath,
+        AURABOT_WEB_BOOTSTRAP_FILE: bootstrapPath,
         AURABOT_WEB_SESSION_DIR: sessionPath } });
     let output = "";
     child.stdout.on("data", chunk => { output += chunk; });
@@ -85,6 +82,7 @@ await new Promise((resolve, reject) => {
 await new Promise(resolve => server.listen(8873, "127.0.0.1", resolve));
 const tokenA = "01".repeat(32), tokenB = "02".repeat(32);
 let sessionCookie = "";
+let csrf = "";
 async function get(operation) {
     const response = await fetch(`http://127.0.0.1:8873/cgi-bin/operaciones.cgi?op=${operation}`, {
         headers: sessionCookie ? { cookie: sessionCookie } : {}
@@ -93,7 +91,8 @@ async function get(operation) {
 }
 async function post(operation, token = tokenA, extra = {}) {
     const response = await fetch("http://127.0.0.1:8873/cgi-bin/operaciones.cgi", {
-        method: "POST", body: new URLSearchParams({ op: operation, token, ...extra }),
+        method: "POST", body: new URLSearchParams({ op: operation, token, ...extra,
+            ...(csrf && operation !== "auth-login" ? { csrf } : {}) }),
         headers: sessionCookie ? { cookie: sessionCookie } : {}
     });
     const cookie = response.headers.get("set-cookie");
@@ -107,8 +106,21 @@ try {
     assert.equal((await post("auth-login", tokenA, { username: authUsername, password: "incorrecta" })).status, 401);
     const login = await post("auth-login", tokenA, { username: authUsername, password: authPassword });
     assert.equal(login.data.authenticated, true);
+    assert.equal(login.data.role, "admin");
+    assert.match(login.data.csrf, /^[0-9a-f]{64}$/);
+    csrf = login.data.csrf;
     assert.match(sessionCookie, /^aurabot_session=[0-9a-f]{64}$/);
     assert.equal((await get("auth-status")).data.authenticated, true);
+    assert.equal((await get("auth-users")).data.users.length, 1);
+    assert.equal((await post("auth-user-create", tokenA,
+        { username: "visor", password: "Viewer-Test-2026!", role: "viewer" })).data.ok, true);
+    const users = (await get("auth-users")).data.users;
+    const viewer = users.find(user => user.username === "visor");
+    assert.equal(viewer.role, "viewer");
+    assert.equal((await post("auth-user-update", tokenA,
+        { id: viewer.id, username: "visor", role: "viewer", enabled: 1 })).data.ok, true);
+    assert.equal((await post("auth-user-password", tokenA,
+        { id: viewer.id, password: "Viewer-New-2026!" })).data.ok, true);
 
     assert.equal((await get("robot-status")).data.mode, 1);
     assert.equal((await get("robot-claim")).data.ok, false); // GET no modifica el robot.
@@ -160,7 +172,15 @@ try {
     assert.equal((await post("robot-mode", tokenA, { mode: 2 })).data.ok, true);
     assert.equal((await post("auth-logout")).data.authenticated, false);
     sessionCookie = "";
+    csrf = "";
     assert.equal((await get("robot-status")).status, 401);
+    const viewerLogin = await post("auth-login", tokenA,
+        { username: "visor", password: "Viewer-New-2026!" });
+    csrf = viewerLogin.data.csrf;
+    assert.equal(viewerLogin.data.role, "viewer");
+    assert.equal((await get("robot-status")).status, 200);
+    assert.equal((await post("robot-mode", tokenA, { mode: 2 })).status, 403);
+    assert.equal((await get("auth-users")).status, 403);
     console.log("Integración correcta: autenticación, sesiones, exclusión, heartbeat/expiración, motores, mapa, audio y parada de emergencia.");
     if (process.argv.includes("--serve")) {
         console.log("Vista de prueba: http://127.0.0.1:8873 · hardware simulado · Ctrl+C para cerrar");

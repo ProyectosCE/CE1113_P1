@@ -22,11 +22,6 @@
             if (track === "") { statusElement.textContent = "Seleccione una canción"; return; }
             parameters.op = "audio-track";
             parameters.track = track;
-        } else if (operation === "sqrt") {
-            parameters.a = byId("a").value;
-        } else if (!["mensaje", "audio-pause", "audio-stop"].includes(operation)) {
-            parameters.a = byId("a").value;
-            parameters.b = byId("b").value;
         }
 
         statusElement.textContent = "Ejecutando operación…";
@@ -122,7 +117,6 @@
     byId("audio-device-refresh").addEventListener("click", loadAudioDevices);
     byId("audio-previous").addEventListener("click", () => moveTrack(-1));
     byId("audio-next").addEventListener("click", () => moveTrack(1));
-    byId("message-button").addEventListener("click", () => executeOperation("mensaje"));
 
     const audioVolume = byId("audio-volume");
     audioVolume.addEventListener("input", () => {
@@ -130,7 +124,10 @@
     });
     audioVolume.addEventListener("change", applyAudioVolume);
 
-    window.addEventListener("aurabot:authenticated", () => {
+    window.addEventListener("aurabot:authenticated", event => {
+        const canOperate = event.detail.role === "operator" || event.detail.role === "admin";
+        document.querySelectorAll("[data-operation], #audio-device-apply, #audio-volume")
+            .forEach(control => { control.disabled = !canOperate; });
         statusElement.textContent = "Sesión iniciada. Esperando una operación…";
         resultElement.textContent = "—";
         void loadAudioDevices();

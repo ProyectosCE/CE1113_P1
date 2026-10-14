@@ -1,7 +1,6 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
@@ -107,9 +106,6 @@ int main(void)
     const char *method = getenv("REQUEST_METHOD");
     int is_post = method != NULL && strcmp(method, "POST") == 0;
     char op[32] = {0};
-    float a = 0.0f;
-    float b = 0.0f;
-    float resultado = 0.0f;
 
     query = getenv("QUERY_STRING");
     if (is_post) {
@@ -134,10 +130,16 @@ int main(void)
         return 0;
     }
 
-    sscanf(query, "op=%31[^&]&a=%f&b=%f", op, &a, &b);
+    sscanf(query, "op=%31[^&]", op);
 
     if (web_auth_handle(op, query, is_post)) return 0;
-    if (!web_auth_require()) return 0;
+    if (!web_auth_require(query, is_post)) return 0;
+
+    if (is_post && strncmp(op, "robot-", 6) == 0 &&
+        strcmp(op, "robot-emergency-stop") != 0 && !web_auth_is_operator()) {
+        web_auth_forbidden();
+        return 0;
+    }
 
     if (web_robot_handle(op, query, is_post)) return 0;
 
@@ -154,6 +156,7 @@ int main(void)
     if (strcmp(op, "audio-track") == 0) {
         int track;
         if (!is_post) { json_error("Use POST para controlar el audio"); return 0; }
+        if (!web_auth_is_operator()) { web_auth_forbidden(); return 0; }
         if (get_integer(query, "track", 0, 9999, &track) != 0) {
             json_error("Cancion no valida");
             return 0;
@@ -166,6 +169,7 @@ int main(void)
         int card;
 
         if (!is_post) { json_error("Use POST para controlar el audio"); return 0; }
+        if (!web_auth_is_operator()) { web_auth_forbidden(); return 0; }
 
         if (get_selected_card(query, &card) != 0) {
             json_error("Tarjeta ALSA no valida");
@@ -179,6 +183,7 @@ int main(void)
         int volume;
 
         if (!is_post) { json_error("Use POST para controlar el audio"); return 0; }
+        if (!web_auth_is_operator()) { web_auth_forbidden(); return 0; }
 
         if (get_volume(query, &volume) != 0) {
             json_error("Volumen no valido; debe estar entre 0 y 100");
@@ -193,6 +198,7 @@ int main(void)
         strcmp(op, "audio-pause") == 0 ||
         strcmp(op, "audio-stop") == 0) {
         if (!is_post) { json_error("Use POST para controlar el audio"); return 0; }
+        if (!web_auth_is_operator()) { web_auth_forbidden(); return 0; }
         if (strcmp(op, "audio-play") == 0) {
             aurabot_status_t status;
             int result = aurabot_get_status(&status);
@@ -205,32 +211,7 @@ int main(void)
         return 0;
     }
 
-    if (strcmp(op, "suma") == 0) {
-        resultado = a+b;
-        json_result("suma", resultado);
-    }
-    else if (strcmp(op, "resta") == 0) {
-        resultado = a-b;
-        json_result("resta", resultado);
-    }
-    else if (strcmp(op, "mult") == 0) {
-        resultado = a*b;
-        json_result("mult", resultado);
-    }
-    else if (strcmp(op, "div") == 0) {
-        resultado = a/b;
-        json_result("div", resultado);
-    }
-    else if (strcmp(op, "sqrt") == 0) {
-        resultado = sqrt(a);
-        json_result("sqrt", resultado);
-    }
-    else if (strcmp(op, "mensaje") == 0) {
-        json_text("mensaje", "Hola desde Raspberry Pi 4");
-    }
-    else {
-        json_error("Operacion no valida");
-    }
+    json_error("Operacion no valida");
 
     return 0;
 }

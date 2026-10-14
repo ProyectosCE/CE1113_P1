@@ -9,9 +9,9 @@ SYSTEMD_SERVICE:${PN} = "media-audio.mount"
 SYSTEMD_AUTO_ENABLE:${PN} = "enable"
 
 do_install() {
-    install -d ${D}${systemd_system_unitdir} ${D}/media/audio
+    install -d ${D}${systemd_system_unitdir}
     install -m 0644 ${WORKDIR}/media-audio.mount \
         ${D}${systemd_system_unitdir}/media-audio.mount
 }
 
-FILES:${PN} += "${systemd_system_unitdir}/media-audio.mount /media/audio"
+FILES:${PN} += "${systemd_system_unitdir}/media-audio.mount"

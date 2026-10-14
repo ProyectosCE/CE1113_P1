@@ -15,7 +15,7 @@ cumplidos los puntos físicos únicamente porque el software los configure.
 | Sonidos de evento | `boot`, `autonomous`, `obstacle`, `manual` | Implementado; playlist debe conservar esas cuatro entradas |
 | Cambio autónomo/manual y dirección remota | Concesión exclusiva, heartbeat y parada segura | Implementado y probado con hardware simulado |
 | Sensores, mapa y LEDs en tiempo real | JSON de estado + mapa incremental + canvas web | Implementado; protocolo AuraBot v3 |
-| Inicio de sesión | SHA-256 salteado/iterado y cookie de sesión | Implementado; HTTP requiere una WLAN confiable |
+| Inicio de sesión | Usuarios SQLite, hashes bcrypt, roles, CSRF y cookie de sesión | Implementado; WPA2 protege el enlace, pero HTTP no ofrece TLS |
 | systemd y reinicio ante fallos | Unidades propias con `Restart=on-failure` | Implementado; capturar `NRestarts` en target |
 | Biblioteca dinámica propia | `libaurabot.so` es la única interfaz usada por CGI/herramientas | Implementado |
 | Desarrollo cruzado CMake/Yocto | Recetas CMake y capa `meta-ce1113` | Implementado; conservar log real de BitBake |

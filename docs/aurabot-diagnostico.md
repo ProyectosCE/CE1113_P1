@@ -116,24 +116,29 @@ una sola lectura.
 ## WiFi
 
 ```sh
-systemctl status aurabot-wifi.service aurabot-wifi-dhcp.service
+systemctl status aurabot-wifi.timer aurabot-wifi.service \
+  aurabot-wifi-dhcp.service aurabot-captive-dns.service
 wpa_cli -i wlan0 status
 ip -4 addr show dev wlan0
-journalctl -b -u aurabot-wifi.service -u aurabot-wifi-dhcp.service
+journalctl -b -u aurabot-wifi.service -u aurabot-wifi-dhcp.service \
+  -u aurabot-captive-dns.service
 dmesg | tail -60
 ```
 
-Sustituir wlan0 si el nombre de interfaz es distinto. `wpa_state=COMPLETED`
-significa asociación completada. Si aparece COMPLETED sin IPv4, revisar DHCP
-y el router. Si no aparece COMPLETED, revisar asociación, señal y credenciales
-mediante los registros de wpa_supplicant. No publicar contraseñas.
+Sustituir wlan0 si el nombre de interfaz es distinto. La interfaz debe tener
+`192.168.4.1/24`; `wpa_cli` debe mostrar el SSID `AuraBot` y modo AP. Si el
+cliente se conecta pero no obtiene una dirección `192.168.4.x`, revisar
+`aurabot-wifi-dhcp.service`. Si tiene dirección pero no abre el portal, revisar
+el DNS cautivo y `webapp-httpd.service`. No publicar la clave WPA2.
 
-`aurabot-wifi.service` mantiene `wpa_supplicant` y
-`aurabot-wifi-dhcp.service` mantiene el cliente DHCP. systemd reinicia cada
-proceso si falla y el journal conserva su diagnóstico.
+`aurabot-wifi.timer` inicia el AP después del arranque principal.
+`aurabot-wifi.service` mantiene `wpa_supplicant` en modo AP,
+`aurabot-wifi-dhcp.service` asigna direcciones a clientes y
+`aurabot-captive-dns.service` resuelve nombres hacia `192.168.4.1`. systemd
+reinicia cada proceso si falla y el journal conserva su diagnóstico.
 
 ```sh
-systemctl restart aurabot-wifi.service aurabot-wifi-dhcp.service
+systemctl restart aurabot-wifi.service
 ```
 
 Detener AuraBot no modifica la configuración WiFi ni sus enlaces de arranque.

@@ -20,6 +20,7 @@
     let mutationRevision = 0;
     let polling = false;
     let pollTimer = null;
+    let canOperate = false;
 
     async function request(parameters, post = false) {
         const controller = new AbortController();
@@ -37,13 +38,13 @@
 
     function refreshControls() {
         const manual = connected && status?.mode === 2;
-        modeSwitch.disabled = !connected || commandPending || (status?.control_busy && !ownsControl);
+        modeSwitch.disabled = !canOperate || !connected || commandPending || (status?.control_busy && !ownsControl);
         byId("robot-manual-mode").disabled = modeSwitch.disabled || status?.mode === 2;
-        byId("robot-claim").disabled = !manual || ownsControl || status?.control_busy || commandPending;
+        byId("robot-claim").disabled = !canOperate || !manual || ownsControl || status?.control_busy || commandPending;
         byId("robot-release").disabled = !ownsControl || commandPending;
         byId("robot-stop").disabled = !ownsControl;
         const hasMotor = status?.capabilities?.motors?.some(Boolean) ?? false;
-        moveButtons.forEach(button => { button.disabled = !manual || !ownsControl || !hasMotor; });
+        moveButtons.forEach(button => { button.disabled = !canOperate || !manual || !ownsControl || !hasMotor; });
         byId("robot-owner").textContent = !connected ? "Sin conexión" :
             ownsControl ? "Esta pestaña tiene el control" :
             status?.control_busy ? "Otra pestaña tiene el control" : "Control libre";
@@ -55,7 +56,9 @@
 
     function releaseBeacon() {
         if (!ownsControl) return;
-        const body = new URLSearchParams({ op: "robot-release", token });
+        const body = new URLSearchParams({
+            op: "robot-release", token, csrf: window.aurabotApi.csrf || ""
+        });
         if (!navigator.sendBeacon(endpoint, body)) {
             fetch(endpoint, { method: "POST", body, keepalive: true }).catch(() => {});
         }
@@ -148,7 +151,7 @@
         byId("robot-audio").textContent = data.capabilities.audio ?
             `${["Detenido", "Reproduciendo", "Pausado", "Error"][data.audio.state]} · pista ${data.audio.track} · volumen ${data.audio.volume} %` : "Deshabilitado";
         document.querySelectorAll('[data-operation^="audio-"], #audio-volume, #audio-device-apply, #audio-track')
-            .forEach(element => { element.disabled = !data.capabilities.audio; });
+            .forEach(element => { element.disabled = !canOperate || !data.capabilities.audio; });
         if (!data.capabilities.audio) byId("audio-track-hint").textContent = "Audio deshabilitado en hardware_config.h.";
         if (data.capabilities.audio && document.activeElement !== byId("audio-volume")) {
             const volume = Math.max(0, Math.min(100, (data.audio.volume - 50) * 2));
@@ -288,12 +291,16 @@
         if (document.hidden) { releaseBeacon(); forgetControl(); }
     });
     window.addEventListener("pagehide", () => { releaseBeacon(); forgetControl(); });
-    window.addEventListener("aurabot:authenticated", startPolling);
+    window.addEventListener("aurabot:authenticated", event => {
+        canOperate = event.detail.role === "operator" || event.detail.role === "admin";
+        startPolling();
+    });
     window.addEventListener("aurabot:unauthenticated", () => {
         if (pollTimer !== null) clearTimeout(pollTimer);
         pollTimer = null;
         polling = false;
         connected = false;
+        canOperate = false;
         forgetControl();
     });
     window.addEventListener("aurabot:before-logout", event => {

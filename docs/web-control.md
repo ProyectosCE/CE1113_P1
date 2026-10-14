@@ -31,26 +31,33 @@ del control y es independiente de la cookie que autentica al usuario.
 ## Autenticación
 
 Todas las operaciones CGI, incluidas las lecturas, requieren una sesión. El
-login compara la contraseña con un hash SHA-256 salteado e iterado; la
-contraseña en texto claro no se instala en el rootfs. Una sesión usa un token
-aleatorio de 32 bytes en una cookie `HttpOnly`, `SameSite=Strict`, dura ocho
-horas y se almacena con permisos de root bajo `/run`. Por tanto, todas las
-sesiones desaparecen al reiniciar el robot.
+login verifica un hash bcrypt con costo 12 mediante `libxcrypt`; la contraseña
+en texto claro nunca se guarda. Las cuentas persisten en SQLite bajo
+`/var/lib/aurabot-auth/users.db`, con permisos exclusivos del servicio. Una
+sesión usa un token aleatorio de 32 bytes en una cookie `HttpOnly`,
+`SameSite=Strict`, dura ocho horas y se almacena bajo `/run`. Por tanto, todas
+las sesiones desaparecen al reiniciar el robot, pero los usuarios permanecen.
+
+Hay tres roles: `viewer` puede consultar estado y ejecutar la parada de
+emergencia; `operator` además puede conducir y controlar el audio; `admin`
+añade el panel de usuarios para crear, editar, habilitar, deshabilitar, cambiar
+contraseñas y eliminar cuentas. El servidor impide desactivar o degradar la
+propia cuenta administrativa y evita eliminar el último administrador activo.
+Los cambios de rol, estado o contraseña invalidan las sesiones anteriores de
+esa cuenta. Los POST autenticados requieren además el token CSRF de la sesión.
 
 La receta incluye credenciales únicamente para desarrollo: usuario `admin` y
 contraseña `AuraBot-CE1113!`. Antes de construir una imagen entregable,
 sobrescribir al menos estas variables en `conf/local.conf`:
 
 ```bitbake
-AURABOT_WEB_USERNAME = "operador"
-AURABOT_WEB_PASSWORD = "una-frase-larga-y-unica"
-AURABOT_WEB_AUTH_SALT = "otro-valor-unico-para-este-robot"
+AURABOT_WEB_USERNAME = "admin"
+AURABOT_WEB_PASSWORD_HASH = "$2b$12$...hash-bcrypt-completo..."
 ```
 
-La contraseña debe tener al menos 12 caracteres. El archivo final se instala
-como `/etc/aurabot/web-auth.conf`, modo `0600`, y contiene únicamente usuario,
-salt, iteraciones y hash. El login incorpora una demora ante credenciales
-incorrectas y hace comparación del hash en tiempo constante.
+Las contraseñas aceptadas tienen entre 12 y 72 bytes. El archivo inicial se
+instala como `/etc/aurabot/web-auth-bootstrap.conf`, modo `0600`, y contiene
+únicamente usuario, rol y hash bcrypt. Solo se usa para sembrar una base vacía.
 
 Esta autenticación limita quién opera el robot y protege la contraseña
 almacenada, pero el BusyBox httpd actual sirve HTTP sin TLS: alguien capaz de
@@ -86,6 +93,11 @@ del robot incluyen `code` y `error`. No se almacenan en caché.
 | auth-status | GET | Ninguno; es la única lectura pública |
 | auth-login | POST | username, password |
 | auth-logout | POST | Cookie de sesión |
+| auth-users | GET | Solo admin |
+| auth-user-create | POST | username, password, role; solo admin |
+| auth-user-update | POST | id, username, role, enabled; solo admin |
+| auth-user-password | POST | id, password; solo admin |
+| auth-user-delete | POST | id; solo admin |
 | robot-status | GET | Ninguno |
 | robot-map | GET | Ninguno |
 | robot-mode | POST | mode=1 autónomo o 2 manual, token |
@@ -96,8 +108,9 @@ del robot incluyen `code` y `error`. No se almacenan en caché.
 | robot-stop | POST | token |
 | robot-emergency-stop | POST | Ninguno |
 
-`auth-login` emite la cookie de sesión. Salvo `auth-status` y `auth-login`, todas
-las rutas exigen esa cookie y responden HTTP 401 cuando falta o expiró.
+`auth-login` emite la cookie de sesión y devuelve el rol y un token CSRF. Salvo
+`auth-status` y `auth-login`, todas las rutas exigen la cookie y responden HTTP
+401 cuando falta o expiró. Los POST restantes también exigen `csrf`.
 
 `robot-status` separa la telemetría de encoder en `motor_movement` y
 `motor_direction`, ambos como arreglos `[izquierdo, derecho]`. `motor_movement`
@@ -154,7 +167,8 @@ node scripts/test-web-integration.mjs --daemon BIN_SIMULADO --cgi CGI
 Compilar el daemon con `AURABOT_FAKE_HARDWARE=ON`; daemon y biblioteca deben tener
 el mismo `AURABOT_RUNTIME_DIRECTORY_OVERRIDE` en /tmp. Añadir `--serve` mantiene
 la web de pruebas en `http://127.0.0.1:8873`; Ctrl+C cierra daemon y servidor.
-Las pruebas cubren login incorrecto/correcto, cookie y cierre de sesión, acceso
-no autorizado, eliminación de PWM/GPIO, dos clientes, exclusión,
+Las pruebas cubren login incorrecto/correcto, SQLite, bcrypt, CSRF, CRUD de
+usuarios, permisos por rol, cookie y cierre de sesión, acceso no autorizado,
+eliminación de PWM/GPIO, dos clientes, exclusión,
 renovación/expiración, detener al liberar, mapa, audio, validación de parámetros
 y parada de emergencia.

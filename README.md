@@ -76,14 +76,15 @@ Antes de producir una imagen entregable, agregar fuera del bloque administrado
 de `build-raspberrypi4/conf/local.conf`:
 
 ```bitbake
-AURABOT_WEB_USERNAME = "operador"
-AURABOT_WEB_PASSWORD = "una-frase-larga-y-unica"
-AURABOT_WEB_AUTH_SALT = "valor-unico-para-este-robot"
+AURABOT_WEB_USERNAME = "admin"
+AURABOT_WEB_PASSWORD_HASH = "$2b$12$...hash-bcrypt-completo..."
 ```
 
-La contraseña en texto claro se utiliza solo al construir; el rootfs recibe un
-hash SHA-256 salteado e iterado. El usuario inicial de desarrollo es `admin` y
-la contraseña `AuraBot-CE1113!`.
+La imagen nunca necesita la contraseña en texto claro: recibe un hash bcrypt
+con costo 12. Al primer acceso se crea `/var/lib/aurabot-auth/users.db`; después,
+las cuentas y roles se administran desde el panel web de un administrador. El
+usuario inicial de desarrollo es `admin` y la contraseña
+`AuraBot-CE1113!`; deben cambiarse para una imagen entregable.
 
 ## Instalación y arranque
 
@@ -96,8 +97,10 @@ playlist. Al arrancar, `systemd` habilita automáticamente:
 
 | Unidad | Función | Recuperación |
 | --- | --- | --- |
-| `aurabot-wifi.service` | Asociación WPA | `Restart=on-failure` |
-| `aurabot-wifi-dhcp.service` | Dirección IPv4 por DHCP | `Restart=on-failure` |
+| `aurabot-wifi.timer` | Retrasa el AP hasta después del arranque inicial | Activación automática |
+| `aurabot-wifi.service` | AP WPA2 `AuraBot` en `192.168.4.1` | `Restart=on-failure` |
+| `aurabot-wifi-dhcp.service` | Direcciones para clientes del AP | `Restart=on-failure` |
+| `aurabot-captive-dns.service` | Envía nombres DNS al portal local | `Restart=on-failure` |
 | `media-audio.mount` | Montaje de `AURA_AUDIO` | Reintento mediante systemd |
 | `aurabot-audio.service` | Reproductor persistente | `Restart=on-failure` |
 | `aurabot.service` | Navegación, mapa y hardware | `Restart=on-failure` |
@@ -112,7 +115,12 @@ systemctl show aurabot.service webapp-httpd.service -p Restart -p NRestarts
 journalctl -b -u aurabot.service -u webapp-httpd.service
 ```
 
-La interfaz se abre en `http://IP_DEL_ROBOT/`. Permite cambiar de modo, conducir
+Conectarse a la red WPA2 `AuraBot` con la clave de desarrollo
+`AuraBot-Local-2026!` y abrir `http://192.168.4.1/`. La clave debe cambiarse en
+`wpa_supplicant.conf` para una imagen entregable. El DNS cautivo y las respuestas
+HTTP para rutas desconocidas permiten que muchos dispositivos muestren el portal
+automáticamente; el comportamiento exacto depende del sistema operativo del
+cliente. La interfaz permite cambiar de modo, conducir
 en manual, observar sensores, motores, mapa y LEDs, y controlar pista, volumen y
 dispositivo de audio. Los recursos visuales están dentro de la imagen y no usan
 CDN ni conexión a Internet.

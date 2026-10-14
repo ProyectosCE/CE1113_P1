@@ -1,0 +1,10 @@
+[Unit]
+Description=Start AuraBot access point after the initial boot
+
+[Timer]
+OnBootSec=5s
+AccuracySec=1s
+Unit=aurabot-wifi.service
+
+[Install]
+WantedBy=timers.target

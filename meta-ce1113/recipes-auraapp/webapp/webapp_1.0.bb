@@ -5,14 +5,12 @@ LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=01a1da8f041f97d0885a60dfc1ad8459"
 
 RDEPENDS:${PN} += "busybox"
-DEPENDS += "aurabot-api"
+DEPENDS += "aurabot-api sqlite3 libxcrypt"
 
-# Credenciales iniciales para desarrollo. En una imagen entregable deben
-# sobrescribirse en conf/local.conf; solo el hash resultante llega al rootfs.
+# Cuenta inicial de desarrollo. La imagen contiene exclusivamente el hash
+# bcrypt; una imagen entregable debe sobrescribir usuario y hash.
 AURABOT_WEB_USERNAME ?= "admin"
-AURABOT_WEB_PASSWORD ?= "AuraBot-CE1113!"
-AURABOT_WEB_AUTH_SALT ?= "CE1113-AuraBot-development-salt"
-AURABOT_WEB_AUTH_ITERATIONS ?= "60000"
+AURABOT_WEB_PASSWORD_HASH ?= "$2b$12$pVqNDRHrZ0E4cH/ga4DMTePmeJvoqRQiU6WCBv6J8k94G9004dqX."
 
 SRC_URI = " \
     file://index.html \
@@ -27,9 +25,8 @@ SRC_URI = " \
     file://robot_web.h \
     file://web_auth.c \
     file://web_auth.h \
-    file://sha256.c \
-    file://sha256.h \
     file://auth.js \
+    file://users.js \
     file://robot-control.js \
     file://CMakeLists.txt \
     file://webapp-httpd.service \
@@ -40,34 +37,19 @@ S = "${WORKDIR}"
 inherit cmake systemd
 
 python do_generate_web_auth() {
-    import hashlib
     import os
     import re
 
     username = d.getVar("AURABOT_WEB_USERNAME") or ""
-    password = d.getVar("AURABOT_WEB_PASSWORD") or ""
-    salt_seed = d.getVar("AURABOT_WEB_AUTH_SALT") or ""
-    try:
-        iterations = int(d.getVar("AURABOT_WEB_AUTH_ITERATIONS") or "0")
-    except ValueError:
-        bb.fatal("AURABOT_WEB_AUTH_ITERATIONS debe ser un entero")
+    password_hash = d.getVar("AURABOT_WEB_PASSWORD_HASH") or ""
     if not re.fullmatch(r"[A-Za-z0-9_.-]{1,32}", username):
         bb.fatal("AURABOT_WEB_USERNAME contiene caracteres no permitidos")
-    if len(password) < 12:
-        bb.fatal("AURABOT_WEB_PASSWORD debe tener al menos 12 caracteres")
-    if not salt_seed:
-        bb.fatal("AURABOT_WEB_AUTH_SALT no puede estar vacío")
-    if iterations < 1000 or iterations > 1000000:
-        bb.fatal("AURABOT_WEB_AUTH_ITERATIONS debe estar entre 1000 y 1000000")
+    if not re.fullmatch(r"\$2b\$1[0-9]\$[./A-Za-z0-9]{53}", password_hash):
+        bb.fatal("AURABOT_WEB_PASSWORD_HASH debe ser un hash bcrypt $2b$ con costo >= 10")
 
-    salt = hashlib.sha256(salt_seed.encode("utf-8")).digest()[:16]
-    digest = hashlib.sha256(salt + password.encode("utf-8")).digest()
-    for _ in range(1, iterations):
-        digest = hashlib.sha256(digest + salt).digest()
-
-    destination = os.path.join(d.getVar("WORKDIR"), "aurabot-web-auth.conf")
+    destination = os.path.join(d.getVar("WORKDIR"), "aurabot-web-auth-bootstrap.conf")
     with open(destination, "w", encoding="ascii") as config:
-        config.write(f"{username}:{salt.hex()}:{iterations}:{digest.hex()}\n")
+        config.write(f"{username}:admin:{password_hash}\n")
 }
 
 addtask generate_web_auth after do_unpack before do_install
@@ -90,10 +72,11 @@ do_install:append() {
     install -m 0644 ${WORKDIR}/app.js \
         ${D}/www/app.js
     install -m 0644 ${WORKDIR}/auth.js ${D}/www/auth.js
+    install -m 0644 ${WORKDIR}/users.js ${D}/www/users.js
     install -m 0644 ${WORKDIR}/robot-control.js ${D}/www/robot-control.js
 
-    install -m 0600 ${WORKDIR}/aurabot-web-auth.conf \
-        ${D}${sysconfdir}/aurabot/web-auth.conf
+    install -m 0600 ${WORKDIR}/aurabot-web-auth-bootstrap.conf \
+        ${D}${sysconfdir}/aurabot/web-auth-bootstrap.conf
 
     install -m 0644 ${WORKDIR}/httpd.conf \
         ${D}/etc/httpd.conf
@@ -111,8 +94,8 @@ FILES:${PN} += " \
     /www/cgi-bin \
     /www/cgi-bin/operaciones.cgi \
     /etc/httpd.conf \
-    ${sysconfdir}/aurabot/web-auth.conf \
+    ${sysconfdir}/aurabot/web-auth-bootstrap.conf \
     ${systemd_system_unitdir}/webapp-httpd.service \
 "
 
-CONFFILES:${PN} += "${sysconfdir}/aurabot/web-auth.conf"
+CONFFILES:${PN} += "${sysconfdir}/aurabot/web-auth-bootstrap.conf"
