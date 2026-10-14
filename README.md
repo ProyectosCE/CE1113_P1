@@ -148,8 +148,7 @@ CE1113_P1/
 > **Nota sobre `meta-robot/`:** la especificación pide la capa en un directorio
 > `meta-robot/`. En este proyecto la capa se llama `meta-ce1113/`
 > (`BBFILE_COLLECTIONS = "ce1113"`) y cumple el mismo papel: contiene el
-> `layer.conf` y las recetas `.bb` propias. **PENDIENTE:** confirmar con el
-> profesor que el nombre es aceptable o renombrar la capa a `meta-robot`.
+> `layer.conf` y las recetas `.bb` propias. 
 
 ---
 
@@ -163,15 +162,25 @@ Reglas aplicadas en el diseño:
 
 - **Aislamiento** entre lógica y motores (optoacopladores o driver aislado). Las
   tierras de lógica y potencia están separadas y solo se unen a través del
-  aislador.
+  aislador. 
 - **Dos rieles independientes:** lógica (Raspberry Pi, sensores, LED, audio) y
-  potencia de motores, derivados de la batería y regulados por separado.
-- **Regulador** buck-boost a 5 V con ≥ 3 A para la Raspberry Pi (una celda Li-Ion
-  varía entre ≈3.0 V y ≈4.2 V).
+  potencia de motores, derivados de la batería y powerbank por separado.
 - **BMS** obligatorio para proteger contra sobrecarga, sobredescarga y cortocircuito.
 
-> **PENDIENTE:** indicar los componentes exactos usados (modelo de optoacoplador
-> o driver, puente H, regulador, BMS, batería) y adjuntar fotos y esquemático.
+Componentes usados:
+
+- **Driver de motor**  lm298
+
+- **Aislamiento galvanico**  PC123
+
+- **Sensores infrarojos** AD33838
+
+- **Amplificador de audio** PAM8403 2x3W
+
+- **Parlante** CE-SPK-01
+
+
+
 
 ### 4.1 Asignación de pines (BCM)
 
@@ -375,8 +384,8 @@ Detalles y recuperación ante fallos de lectura: [`docs/development/image-script
 
 1. Apague siempre con `poweroff` antes de retirar la alimentación (evita dañar el sistema de archivos).
 2. El robot arranca en **modo autónomo** y puede mover los motores de inmediato: haga la primera prueba **con las ruedas levantadas**.
-3. Se conecta a la red Wi-Fi configurada en `wifi-config` (interfaz `wlan0`). **PENDIENTE:** indicar cómo cambiar el SSID (sin publicar la clave).
-4. Abra en el navegador la dirección IP que le entregó el router. **PENDIENTE:** indicar cómo se obtiene la IP (router, `ip -4 addr show dev wlan0`, nombre mDNS si existe).
+3. Se conecta a la red Wi-Fi configurada en `wifi-config` (interfaz `wlan0`). 
+4. Abra en el navegador la dirección IP que le entregó el router. 
 
 > HTTP sin TLS: use una WLAN de confianza protegida con WPA2.
 
@@ -428,9 +437,139 @@ Funciones destacadas:
 | `aurabot_set_mode_controlled` | Cambio de modo respetando al propietario del control. |
 | `aurabot_audio_set_device` | Selección de tarjeta ALSA desde el daemon. |
 
-> **PENDIENTE:** pegar aquí la tabla completa de prototipos de `aurabot.h`
-> (nombre, parámetros, valor de retorno y errores de cada función), y las de
-> `libgpio.h`/`libpwm.h` si se desea documentar las bibliotecas de bajo nivel.
+## API de AuraBot
+
+### Códigos de retorno
+
+Las funciones de `aurabot.h` que retornan `int` utilizan los siguientes códigos de estado:
+
+| Código | Significado |
+|---|---|
+| `AURABOT_OK` (`0`) | Operación exitosa. |
+| `AURABOT_ERR_INVALID_ARGUMENT` (`-1`) | Argumento, puntero, tamaño o valor no válido. |
+| `AURABOT_ERR_NOT_OWNER` (`-2`) | El cliente no posee el control del robot. |
+| `AURABOT_ERR_WRONG_MODE` (`-3`) | La operación no está permitida en el modo actual. |
+| `AURABOT_ERR_BUSY` (`-4`) | El recurso o control solicitado está ocupado. |
+| `AURABOT_ERR_HARDWARE` (`-5`) | Error al operar un componente de hardware. |
+| `AURABOT_ERR_PROTOCOL` (`-6`) | Error de comunicación o respuesta incompatible con el protocolo. |
+| `AURABOT_ERR_UNAVAILABLE` (`-7`) | El servicio no está disponible o no responde dentro del tiempo esperado. |
+
+Los errores específicos que puede retornar cada función dependen de la operación y de la respuesta del servidor. Las funciones que reciben punteros también pueden rechazar argumentos nulos.
+
+### Funciones de conexión y consulta
+
+| Función | Parámetros | Retorno | Errores |
+|---|---|---|---|
+| `aurabot_connect()` | Ninguno. | `int`: `AURABOT_OK` si conecta. | `AURABOT_ERR_PROTOCOL`, `AURABOT_ERR_UNAVAILABLE`. |
+| `aurabot_disconnect()` | Ninguno. | `void`. | No retorna código de error. |
+| `aurabot_get_status(aurabot_status_t *status)` | `status`: estructura donde se almacenará el estado del robot. | `int`: estado de la operación. | `INVALID_ARGUMENT`, `PROTOCOL`, `UNAVAILABLE`; también errores de comunicación. |
+| `aurabot_get_capabilities(aurabot_capabilities_t *capabilities)` | `capabilities`: estructura donde se almacenan las capacidades disponibles. | `int`: estado de la operación. | `INVALID_ARGUMENT`, `PROTOCOL`, `UNAVAILABLE`; también errores de comunicación. |
+
+`aurabot_status_t` contiene el modo actual, el estado de navegación, las velocidades y direcciones de los motores, las lecturas de obstáculos, la posición estimada, la revisión del mapa y el estado del audio y los LEDs.
+
+`aurabot_capabilities_t` indica la disponibilidad de motores, encoders, sensores, audio y LEDs.
+
+### Funciones de modo de operación y control
+
+| Función | Parámetros | Retorno | Errores |
+|---|---|---|---|
+| `aurabot_set_mode(aurabot_mode_t mode)` | `mode`: modo solicitado (`INIT`, `AUTONOMOUS`, `MANUAL` o `SAFE_STOP`). | `int`: estado de la operación. | `INVALID_ARGUMENT`, `WRONG_MODE`, `HARDWARE`, `PROTOCOL`, `UNAVAILABLE`, según la respuesta. |
+| `aurabot_set_mode_controlled(aurabot_mode_t mode, const unsigned char owner_token[AURABOT_OWNER_TOKEN_SIZE])` | `mode`: modo solicitado. `owner_token`: token del cliente propietario del control. | `int`: estado de la operación. | `INVALID_ARGUMENT` si el token es nulo; también `NOT_OWNER`, `WRONG_MODE`, `BUSY`, `HARDWARE` u otros errores del servidor. |
+| `aurabot_claim_control(const unsigned char owner_token[AURABOT_OWNER_TOKEN_SIZE])` | `owner_token`: token de 32 bytes que identifica al propietario del control. | `int`: estado de la solicitud. | `INVALID_ARGUMENT` si el token es nulo; puede retornar `BUSY`, `NOT_OWNER` u otros errores del servidor. |
+| `aurabot_control_heartbeat(const unsigned char owner_token[AURABOT_OWNER_TOKEN_SIZE])` | `owner_token`: token del cliente que mantiene el control. | `int`: estado de la operación. | `INVALID_ARGUMENT` si el token es nulo; puede retornar `NOT_OWNER` u otros errores del servidor. |
+| `aurabot_release_control(const unsigned char owner_token[AURABOT_OWNER_TOKEN_SIZE])` | `owner_token`: token del propietario que libera el control. | `int`: estado de la operación. | `INVALID_ARGUMENT` si el token es nulo; puede retornar `NOT_OWNER` u otros errores del servidor. |
+| `aurabot_drive(const unsigned char owner_token[AURABOT_OWNER_TOKEN_SIZE], int left_percent, int right_percent)` | `owner_token`: propietario del control. `left_percent`, `right_percent`: valores de control de cada motor. | `int`: estado de la operación. | `INVALID_ARGUMENT`, `NOT_OWNER`, `WRONG_MODE`, `BUSY`, `HARDWARE`, `PROTOCOL` o `UNAVAILABLE`, según la solicitud. |
+| `aurabot_stop(const unsigned char owner_token[AURABOT_OWNER_TOKEN_SIZE])` | `owner_token`: token del propietario del control. | `int`: estado de la operación. | `INVALID_ARGUMENT` si el token es nulo; también pueden producirse errores de propiedad, modo, hardware o comunicación. |
+| `aurabot_emergency_stop()` | Ninguno. | `int`: estado de la solicitud de parada de emergencia. | Errores de hardware, protocolo o disponibilidad, según la respuesta. |
+
+El control manual utiliza una concesión temporal de `AURABOT_CONTROL_LEASE_MS`, definida en el encabezado como 3000 ms. El cliente debe renovar el control mediante `aurabot_control_heartbeat()` cuando corresponda.
+
+### Funciones de acceso directo al hardware
+
+| Función | Parámetros | Retorno | Errores |
+|---|---|---|---|
+| `aurabot_digital_write(int pin, int value)` | `pin`: GPIO objetivo. `value`: nivel digital (`0` o `1`). | `int`: estado de la operación. | `INVALID_ARGUMENT`, `WRONG_MODE`, `HARDWARE`, `PROTOCOL` o `UNAVAILABLE`, según la respuesta. |
+| `aurabot_pwm_set(int pin, int frequency, int duty)` | `pin`: GPIO objetivo. `frequency`: frecuencia en Hz. `duty`: ciclo de trabajo en porcentaje. | `int`: estado de la operación. | `INVALID_ARGUMENT`, `WRONG_MODE`, `HARDWARE`, `PROTOCOL` o `UNAVAILABLE`, según la respuesta. |
+| `aurabot_pwm_stop(int pin)` | `pin`: GPIO cuya generación PWM debe detenerse. | `int`: estado de la operación. | `INVALID_ARGUMENT`, `WRONG_MODE`, `HARDWARE`, `PROTOCOL` o `UNAVAILABLE`, según la respuesta. |
+
+Estas funciones se destinan a pruebas de GPIO y PWM sobre pines libres, con el robot en modo manual. No deben utilizarse para controlar pines que estén siendo administrados por otro subsistema.
+
+### Funciones del mapa
+
+| Función | Parámetros | Retorno | Errores |
+|---|---|---|---|
+| `aurabot_get_map(unsigned char *cells, unsigned int capacity, unsigned int *required_size)` | `cells`: búfer de salida. `capacity`: capacidad del búfer. `required_size`: espacio necesario para el mapa actual. | `int`: estado de la operación. | `INVALID_ARGUMENT` si `required_size` es nulo, `cells` es nulo o la capacidad es insuficiente; también errores de protocolo o disponibilidad. |
+| `aurabot_get_map_snapshot(aurabot_map_snapshot_t *map)` | `map`: estructura de salida con dimensiones, origen, revisión y celdas del mapa. | `int`: estado de la operación. | `INVALID_ARGUMENT` si `map` es nulo; `PROTOCOL` si la respuesta contiene dimensiones o tamaños inconsistentes; también errores de comunicación. |
+
+El mapa utiliza celdas de 100 mm y admite dimensiones máximas de 128 × 128. Los valores de cada celda se representan mediante `AURABOT_CELL_UNKNOWN`, `AURABOT_CELL_VISITED` y `AURABOT_CELL_OBSTACLE`.
+
+### Funciones de reproducción de audio
+
+| Función | Parámetros | Retorno | Errores |
+|---|---|---|---|
+| `aurabot_audio_play(unsigned int track_index)` | `track_index`: índice de la pista que se desea reproducir. | `int`: estado de la solicitud. | `INVALID_ARGUMENT`, `HARDWARE`, `PROTOCOL`, `UNAVAILABLE` u otro error del servidor. |
+| `aurabot_audio_pause()` | Ninguno. | `int`: estado de la operación. | Errores de hardware, protocolo o disponibilidad. |
+| `aurabot_audio_stop()` | Ninguno. | `int`: estado de la operación. | Errores de hardware, protocolo o disponibilidad. |
+| `aurabot_audio_set_volume(int volume_percent)` | `volume_percent`: volumen solicitado en porcentaje. | `int`: estado de la operación. | `INVALID_ARGUMENT` si el valor no es aceptado; también errores de hardware, protocolo o disponibilidad. |
+| `aurabot_audio_set_device(int card)` | `card`: índice de tarjeta de audio, entre 0 y 31. | `int`: estado de la operación. | `INVALID_ARGUMENT` si `card` está fuera del intervalo permitido; también errores del servidor. |
+| `aurabot_audio_get_track_count(unsigned int *track_count)` | `track_count`: puntero donde se almacena la cantidad de pistas. | `int`: estado de la operación. | `INVALID_ARGUMENT` si el puntero es nulo o la respuesta no tiene el tamaño esperado; también errores de comunicación. |
+| `aurabot_audio_get_track_name(unsigned int track_index, char *name, unsigned int capacity)` | `track_index`: índice de la pista. `name`: búfer de salida. `capacity`: capacidad del búfer. | `int`: estado de la operación. | `INVALID_ARGUMENT` si el búfer es nulo, su capacidad es cero, el nombre no cabe o la respuesta no es válida; también errores de comunicación. |
+
+### Constantes y estructuras públicas
+
+| Elemento | Descripción |
+|---|---|
+| `AURABOT_OWNER_TOKEN_SIZE` | Tamaño del token de control: 32 bytes. |
+| `AURABOT_MAP_MAX_WIDTH` / `AURABOT_MAP_MAX_HEIGHT` | Dimensiones máximas del mapa: 128 × 128 celdas. |
+| `AURABOT_MAP_CELL_MM` | Tamaño representado por una celda: 100 mm. |
+| `AURABOT_TRACK_NAME_SIZE` | Tamaño máximo del búfer de nombre de pista: 128 bytes. |
+| `AURABOT_CONTROL_LEASE_MS` | Duración de la concesión de control: 3000 ms. |
+| `aurabot_mode_t` | Modos de operación del robot. |
+| `aurabot_auto_state_t` | Estados internos de navegación autónoma. |
+| `aurabot_cell_t` | Clasificación de las celdas del mapa. |
+| `aurabot_audio_state_t` | Estados del reproductor de audio. |
+| `aurabot_result_t` | Códigos de retorno de la API. |
+| `aurabot_status_t` | Estado actual de navegación, hardware, mapa y audio. |
+| `aurabot_map_snapshot_t` | Instantánea del mapa, incluyendo dimensiones, origen y celdas. |
+| `aurabot_capabilities_t` | Disponibilidad de los periféricos del robot. |
+
+## Biblioteca `libgpio.h`
+
+La biblioteca encapsula el acceso a los GPIO mediante la interfaz de exportación de GPIO de Linux en `/sys/class/gpio`.
+
+| Función | Parámetros | Retorno | Errores |
+|---|---|---|---|
+| `pinMode(int pin, const char *mode)` | `pin`: número de GPIO utilizado por la biblioteca. `mode`: `"in"` para entrada o `"out"` para salida. | `int`: `0` si funciona; `-1` si falla. | `EINVAL` si el pin o modo no es válido; errores de exportación, permisos, acceso o espera del atributo GPIO. |
+| `digitalWrite(int pin, int value)` | `pin`: GPIO objetivo. `value`: nivel `0` o `1`. | `int`: `0` si funciona; `-1` si falla. | `EINVAL` para parámetros no válidos; también errores de apertura o escritura en sysfs. |
+| `digitalRead(int pin)` | `pin`: GPIO del que se desea leer el nivel. | `int`: `0` o `1` si funciona; `-1` si falla. | `EINVAL` para un pin no válido; también errores de apertura o lectura. |
+
+Los errores se reportan mediante `errno`. Entre los posibles valores se encuentran `EINVAL`, `ENOENT`, `EACCES`, `EIO` y otros asociados con las operaciones de archivos del sistema.
+
+## Biblioteca `libpwm.h`
+
+La biblioteca genera PWM por software mediante hilos y operaciones sobre GPIO. Cada canal mantiene la frecuencia y el ciclo de trabajo configurados.
+
+| Función | Parámetros | Retorno | Errores |
+|---|---|---|---|
+| `setPWM(int pin, int frequency_hz, int duty_percent)` | `pin`: GPIO entre 0 y 63. `frequency_hz`: frecuencia mayor que 0 y no superior a 1 000 000 000 Hz según la validación de la función. `duty_percent`: ciclo de trabajo entre 0 y 100 %. | `int`: `0` si se inicia o actualiza el canal; `-1` si falla. | `EINVAL` para parámetros fuera de rango; errores de GPIO; error de creación del hilo, comunicado mediante `errno`. |
+| `stopPWM(int pin)` | `pin`: GPIO del canal PWM que se desea detener, entre 0 y 63. | `int`: `0` si funciona; `-1` si falla. | `EINVAL` para un pin fuera de rango; errores al escribir el GPIO o al esperar la finalización del hilo. |
+
+La generación PWM depende de la planificación de Linux y de la temporización por software. Por ello, la frecuencia y el ciclo de trabajo solicitados no garantizan una señal perfectamente periódica bajo carga del sistema.
+
+## Biblioteca `libsensors.h`
+
+| Función | Parámetros | Retorno | Errores |
+|---|---|---|---|
+| `sensorReadDigital(int pin, int active_low)` | `pin`: GPIO del sensor. `active_low`: distinto de cero si el sensor utiliza lógica activa en bajo. | `int`: `0` o `1` con el estado normalizado; `-1` si falla la configuración o lectura. | Hereda los errores de `pinMode()` y `digitalRead()`. |
+
+La función configura el pin como entrada y normaliza la lectura para que el valor lógico resultante represente el estado del sensor de acuerdo con el parámetro `active_low`.
+
+## Consideraciones sobre los errores
+
+Los códigos enumerados para `aurabot.h` se encuentran definidos en la API pública. Sin embargo, no todas las funciones pueden producir todos los códigos: la respuesta depende de la validación local, la operación solicitada y el resultado del servidor.
+
+En las bibliotecas `libgpio` y `libpwm`, los errores se expresan como `-1` y se acompañan de `errno`. El detalle exacto depende de la operación que falle. Para documentar exhaustivamente cada condición, deben contrastarse también las implementaciones `.c` y las validaciones del servidor, no únicamente los prototipos de los encabezados.
+
 
 Notas de uso: cada petición CGI abre su propia conexión y la cierra al terminar;
 la API mantiene una conexión global por proceso y **no es reentrante** para varios hilos.
@@ -516,7 +655,7 @@ agregado más allá de esa base:
 | `aurabot-audio-server` | Reproducción MP3 concurrente y sonidos de evento. |
 | `webapp` | CGI en C y frontend responsive del panel de control. |
 | BusyBox con httpd/CGI | Servidor web liviano; evita Python/Flask y reduce el rootfs. |
-| SQLite y `libxcrypt` (bcrypt) | Base de usuarios y hash de contraseñas para el login. **PENDIENTE:** confirmar nombres exactos de paquete en el manifest. |
+| SQLite y `libxcrypt` (bcrypt) | Base de usuarios y hash de contraseñas para el login. 
 | `mpg123` | Decodificador/reproductor MP3. |
 | `packagegroup-base-alsa`, `alsa-utils-amixer` | Soporte ALSA y control de volumen. |
 | `kernel-module-snd-bcm2835-*` | Controlador del audio analógico (jack 3.5 mm). |
@@ -529,9 +668,6 @@ agregado más allá de esa base:
 
 Se excluyen deliberadamente `kernel-modules` (metapaquete global), aplicaciones
 de prueba (`packagegroup-ce1113-test`), acceso SSH sin contraseña y cualquier GUI.
-
-> **PENDIENTE:** contrastar esta tabla con el `.manifest` final de la imagen y
-> agregar cualquier paquete adicional que aparezca y no esté justificado.
 
 ---
 
@@ -624,12 +760,6 @@ Convención de commits actual (validada por el hook `commit-msg`):
 [UPDATE][TEST] Actualiza control de motores y sus pruebas
 ```
 
-> **ATENCIÓN:** la especificación pide **Conventional Commits** (`feat:`, `fix:`,
-> `docs:`, ...). El repositorio usa hoy el formato `[TAG]`. **PENDIENTE:** migrar
-> el hook y la guía [`docs/development/commit-convention.md`](docs/development/commit-convention.md)
-> a Conventional Commits (`feat(scope): descripción`), o acordar con el profesor
-> que el formato actual es aceptable.
-
 ---
 
 ## 18. Documentación adicional
@@ -644,8 +774,10 @@ Convención de commits actual (validada por el hook `commit-msg`):
 - [Matriz de cumplimiento](docs/compliance.md)
 - [Evidencias de entrega](docs/evidence/README.md)
 - [Entorno Docker + QEMU](docs/development/docker-qemu-environment.md)
-- Documentos escritos del curso: Documento de Diseño (DI) y Documento de Aprendizaje Continuo (AC) — **PENDIENTE:** enlazar los PDF.
+- [Aprendizaje continuo](Atributos/Documento_de_Aprendizaje_Continuo__AC_.pdf)
+- [Atributo Disenio ](Atributos/Documento_de_Diseno__DI_.pdf)
+
 
 ## Licencia
 
-**PENDIENTE:** indicar la licencia del repositorio (las recetas declaran MIT).
+MIT license
