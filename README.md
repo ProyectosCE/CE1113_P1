@@ -1,11 +1,9 @@
 # AuraBot — Robot aspiradora autónomo (CE-1113 Sistemas Empotrados, Proyecto I)
 
-Sistema embebido a la medida para un robot aspiradora autónomo con navegación
-reactiva, mapa de recorrido, reproducción de audio MP3 y control remoto desde el
-navegador. Corre sobre una **Raspberry Pi 4** con una imagen **Yocto** mínima
-(`ce1113-p1`, Yocto Scarthgap) y se compila de forma cruzada con CMake.
-
-
+AuraBot es un robot aspiradora autónomo con navegación reactiva, mapa de
+recorrido, reproducción de audio MP3 y control desde el navegador. El sistema
+se ejecuta en una Raspberry Pi 4 con una imagen mínima de Yocto Scarthgap
+(`ce1113-p1`). El software se compila de forma cruzada con CMake.
 
 **Curso:** CE-1113 Sistemas Empotrados — Escuela de Ingeniería en Computadores, TEC
 **Profesor:** Dr.-Ing. Jeferson González Gómez
@@ -38,7 +36,7 @@ navegador. Corre sobre una **Raspberry Pi 4** con una imagen **Yocto** mínima
 
 ## 1. Características
 
-| Área | Qué hace AuraBot |
+| Área | Función |
 | --- | --- |
 | Navegación autónoma | Cobertura reactiva: al detectar un obstáculo se detiene, retrocede y gira para cambiar de dirección. |
 | Obstáculos | Dos sensores infrarrojos (izquierdo y derecho) leídos en tiempo real. |
@@ -46,9 +44,9 @@ navegador. Corre sobre una **Raspberry Pi 4** con una imagen **Yocto** mínima
 | Indicadores | 4 LED: sistema encendido, modo autónomo, modo manual y obstáculo. |
 | Audio | MP3 local concurrente con la navegación (lista, reproducir, pausar, detener, volumen) y sonidos de evento (inicio, autónomo, obstáculo, manual). |
 | Mapa | Grilla 2D incremental (celdas de 10 cm: desconocida / recorrida / obstáculo) a partir de sensores y odometría de encoders. |
-| Control remoto | Panel web responsive: modo autónomo/manual, control direccional, sensores, LED, audio y mapa en tiempo real. |
+| Control remoto | Panel web adaptable a distintos tamaños de pantalla: modo autónomo/manual, control direccional, sensores, LED, audio y mapa en tiempo real. |
 | Seguridad de acceso | Login con usuarios en SQLite, hash bcrypt, cookie de sesión, CSRF y roles (`viewer`, `operator`, `admin`). |
-| Robustez | Servicios systemd propios con `Restart=on-failure`, parada segura y parada de emergencia. |
+| Supervisión de servicios | Servicios systemd propios con `Restart=on-failure`, parada segura y parada de emergencia. |
 
 ---
 
@@ -56,8 +54,9 @@ navegador. Corre sobre una **Raspberry Pi 4** con una imagen **Yocto** mínima
 
 ### 2.1 Software
 
-El daemon `aurabot` es el **único dueño de los GPIO**. El servidor web nunca toca
-el hardware: usa exclusivamente la biblioteca propia `libaurabot.so`.
+El daemon `aurabot` administra los GPIO. El servidor web se comunica con él a
+través de la biblioteca propia `libaurabot.so`, sin acceder directamente al
+hardware.
 
 ```mermaid
 flowchart TD
@@ -101,7 +100,7 @@ Módulos principales del daemon (`meta-ce1113/recipes-auraapp/aurabot/files/src/
 ```mermaid
 flowchart LR
     PowerBank --> RPI[Raspberry Pi 4]
-    PW[Bateria 12V] --> HB[Puentes H]
+    PW[Batería de 12 V] --> HB[Puentes H]
     HB --> M1[Motor izquierdo]
     HB --> M2[Motor derecho]
     RPI -->|GPIO vía aislamiento óptico| HB
@@ -110,7 +109,6 @@ flowchart LR
     RPI --> ENC[2 encoders Hall]
     RPI -->|jack 3.5 mm| AMP[Amplificador + parlante]
 ```
-
 
 ### 2.3 Orden de arranque
 
@@ -145,42 +143,38 @@ CE1113_P1/
 └── media/                             # MP3 de ejemplo (no van en la imagen)
 ```
 
-> **Nota sobre `meta-robot/`:** la especificación pide la capa en un directorio
-> `meta-robot/`. En este proyecto la capa se llama `meta-ce1113/`
-> (`BBFILE_COLLECTIONS = "ce1113"`) y cumple el mismo papel: contiene el
-> `layer.conf` y las recetas `.bb` propias. 
+> La especificación denomina `meta-robot/` al directorio de la capa. En este
+> repositorio se usa `meta-ce1113/` (`BBFILE_COLLECTIONS = "ce1113"`), que contiene
+> el archivo `layer.conf` y las recetas `.bb` propias.
 
 ---
 
 ## 4. Hardware y seguridad eléctrica
 
-> ⚠️ **Lectura obligatoria.** Conectar un GPIO directamente a la etapa de
-> potencia puede destruir la Raspberry Pi. El incumplimiento es responsabilidad
-> del grupo.
+> **Seguridad eléctrica:** conectar un GPIO directamente a la etapa de
+> potencia puede destruir la Raspberry Pi. El grupo es responsable de respetar
+> las medidas de protección descritas en esta sección.
 
-Reglas aplicadas en el diseño:
+El diseño utiliza las siguientes medidas de protección:
 
 - **Aislamiento** entre lógica y motores (optoacopladores o driver aislado). Las
   tierras de lógica y potencia están separadas y solo se unen a través del
-  aislador. 
+  aislador.
 - **Dos rieles independientes:** lógica (Raspberry Pi, sensores, LED, audio) y
   potencia de motores, derivados de la batería y powerbank por separado.
 - **BMS** obligatorio para proteger contra sobrecarga, sobredescarga y cortocircuito.
 
 Componentes usados:
 
-- **Driver de motor**  lm298
+- **Controlador de motor:** lm298
 
-- **Aislamiento galvanico**  PC123
+- **Aislamiento galvánico:** PC123
 
-- **Sensores infrarojos** AD33838
+- **Sensores infrarrojos:** AD33838
 
-- **Amplificador de audio** PAM8403 2x3W
+- **Amplificador de audio:** PAM8403 2 × 3 W
 
-- **Parlante** CE-SPK-01
-
-
-
+- **Parlante:** CE-SPK-01
 
 ### 4.1 Asignación de pines (BCM)
 
@@ -198,18 +192,19 @@ Definida en `meta-ce1113/recipes-auraapp/aurabot/files/src/hardware_config.h`.
 | LED obstáculo | 4 (sigue la detección conjunta de ambos sensores) |
 | Audio | Jack 3.5 mm (tarjeta ALSA `Headphones`) |
 
-Cada dispositivo se habilita con una macro `AURABOT_*_ENABLE` (1 conectado,
-0 omitido), útil para probar con una bancada parcial. **Cada cambio requiere
-reconstruir la imagen.**
+Las macros `AURABOT_*_ENABLE` permiten habilitar cada dispositivo: 1 si está
+conectado y 0 si se omite. Esto permite probar el sistema con parte del hardware
+conectado. Al cambiar estas macros se debe reconstruir la imagen.
 
 ### 4.2 Decisión de diseño: PWM por software y audio por jack
 
-El jack analógico de la Raspberry Pi 4 genera el audio con los **mismos canales
-PWM0/PWM1** del SoC que usaría el PWM por hardware (`pwm-2chan`, GPIO12/13).
-Cambiar a GPIO18/19 no lo resuelve porque son los mismos canales internos. Por
-eso AuraBot genera el PWM de los motores **por software** (`libpwm.so`, 100 Hz,
-sobre GPIO convencionales) y conserva el jack para el audio. La capa
-`layers/meta-pwm` queda solo como referencia experimental. Detalle completo en
+El audio del jack analógico de la Raspberry Pi 4 utiliza los canales PWM0/PWM1
+del SoC, que también se usarían para PWM por hardware (`pwm-2chan`, GPIO12/13).
+Los GPIO18/19 comparten esos canales internos, por lo que cambiar los pines no
+resuelve el conflicto. Por esta razón, los motores usan PWM por software
+(`libpwm.so`, 100 Hz, sobre GPIO convencionales) y el audio conserva la salida
+por jack. La capa `layers/meta-pwm` se mantiene como referencia experimental.
+La explicación se encuentra en
 [`docs/architecture/audio-pwm-conflict.md`](docs/architecture/audio-pwm-conflict.md).
 
 ---
@@ -235,10 +230,10 @@ Capas externas necesarias en el árbol de Poky: `meta-raspberrypi` (rama `scarth
 
 ## 6. Compilación cruzada con CMake
 
-Todo el código de producción se compila **dentro de Yocto** con la toolchain del
-SDK (`inherit cmake`), por lo que no hay que copiar binarios a mano al target.
-Para verificar rápido en el host (compilación **nativa**, solo para detectar
-roturas de C/CMake y ejecutar las pruebas):
+Yocto compila el código de producción con su toolchain de compilación cruzada
+mediante `inherit cmake` e instala los binarios en la imagen. No es necesario
+copiarlos manualmente a la Raspberry Pi. La compilación nativa en el equipo de
+desarrollo permite detectar errores de C/CMake y ejecutar las pruebas:
 
 ```bash
 cmake -S meta-ce1113/recipes-auraapp/aurabot/files -B build-native
@@ -291,7 +286,7 @@ Cada receta declara `SUMMARY`, `LICENSE`, `LIC_FILES_CHKSUM`, `SRC_URI` (fuentes
 
 ### 7.2 Agregar la capa a un build propio
 
-Si no usan `build.sh`, agreguen las capas manualmente:
+Para configurar las capas sin `build.sh`:
 
 ```bash
 cd $POKY_DIR
@@ -307,13 +302,13 @@ MACHINE = "raspberrypi4"
 INIT_MANAGER = "systemd"
 ```
 
-> `meta-pwm` **no** se agrega: audio analógico y `pwm-2chan` son mutuamente
-> excluyentes (ver §4.2).
+> La capa `meta-pwm` debe quedar fuera de la configuración porque el audio
+> analógico y `pwm-2chan` utilizan los mismos recursos (ver §4.2).
 
-### 7.3 Construir (un solo comando)
+### 7.3 Construcción de la imagen
 
-La vía soportada es `build.sh`, que activa las capas, ejecuta `bitbake ce1113-p1`
-y deja la huella de metadata que exige el verificador:
+El script `build.sh` activa las capas, ejecuta `bitbake ce1113-p1` y guarda los
+metadatos que utiliza el verificador de la imagen:
 
 ```bash
 cd ~/CE1113_P1
@@ -322,8 +317,9 @@ cd ~/CE1113_P1
 ./check_image.sh --no-ui           # verifica integridad
 ```
 
-Equivalente directo: `bitbake ce1113-p1`. Solo se debe flashear si
-`check_image.sh` termina con `RESULTADO: ÍNTEGRA`.
+La imagen también se puede construir directamente con `bitbake ce1113-p1`.
+Antes de grabarla en la SD, `check_image.sh` debe finalizar con
+`RESULTADO: ÍNTEGRA`.
 
 Artefactos en `<poky>/build-raspberrypi4/tmp/deploy/images/raspberrypi4/`:
 
@@ -335,16 +331,16 @@ Artefactos en `<poky>/build-raspberrypi4/tmp/deploy/images/raspberrypi4/`:
 
 ### 7.4 Credenciales de la web
 
-La receta incluye credenciales **solo de desarrollo**. Antes de construir la
-imagen entregable, sobrescriban en `conf/local.conf`:
+La receta incluye credenciales de desarrollo. Para la imagen de entrega, se
+deben definir las credenciales en `conf/local.conf`:
 
 ```bitbake
 AURABOT_WEB_USERNAME = "admin"
 AURABOT_WEB_PASSWORD_HASH = "$2b$12$...hash-bcrypt-completo..."
 ```
 
-Las contraseñas aceptadas tienen entre 4 y 12 caracteres. No publiquen la clave
-Wi-Fi ni contraseñas reales en el repositorio.
+Las contraseñas admitidas tienen entre 4 y 12 caracteres. Las claves de Wi-Fi
+y las contraseñas reales deben mantenerse fuera del repositorio.
 
 ---
 
@@ -355,9 +351,10 @@ Wi-Fi ni contraseñas reales en el repositorio.
 ./flash_sd.sh --device /dev/sdX    # o indicar el dispositivo
 ```
 
-> ⚠️ Destruye todos los datos del disco indicado. Use siempre el **disco completo**
-> (por ejemplo `/dev/mmcblk0`), nunca una partición. El script verifica la
-> integridad, relee lo escrito y compara el SHA-256 contra el WIC.
+> **Advertencia:** la grabación borra todos los datos del disco seleccionado.
+> Se debe indicar el disco completo (por ejemplo `/dev/mmcblk0`), no una
+> partición. El script verifica la integridad, vuelve a leer los datos grabados
+> y compara su SHA-256 con el del WIC.
 
 La SD queda con tres particiones: arranque FAT, rootfs ext4 y una tercera
 partición ext4 de ~2 GiB etiquetada `AURA_AUDIO` (montada en `/media/audio`) que
@@ -368,7 +365,7 @@ partición ext4 de ~2 GiB etiquetada `AURA_AUDIO` (montada en `/media/audio`) qu
 ./load_audio.sh --source ./audios
 ```
 
-Flujo completo recomendado:
+Secuencia de preparación y grabación:
 
 ```text
 check-repository.sh → build.sh → check_image.sh → flash_sd.sh → load_audio.sh
@@ -382,10 +379,10 @@ Detalles y recuperación ante fallos de lectura: [`docs/development/image-script
 
 ### 9.1 Primer arranque
 
-1. Apague siempre con `poweroff` antes de retirar la alimentación (evita dañar el sistema de archivos).
-2. El robot arranca en **modo autónomo** y puede mover los motores de inmediato: haga la primera prueba **con las ruedas levantadas**.
-3. Se conecta a la red Wi-Fi configurada en `wifi-config` (interfaz `wlan0`). 
-4. Abra en el navegador la dirección IP que le entregó el router. 
+1. Para apagar el equipo, ejecute `poweroff` antes de retirar la alimentación y así evitar daños en el sistema de archivos.
+2. Realice la primera prueba con las ruedas levantadas: el robot inicia en modo autónomo y puede activar los motores al arrancar.
+3. El sistema se conecta a la red Wi-Fi definida en `wifi-config` mediante la interfaz `wlan0`.
+4. Acceda desde el navegador a la dirección IP asignada por el router.
 
 > HTTP sin TLS: use una WLAN de confianza protegida con WPA2.
 
@@ -422,13 +419,14 @@ Más detalle en [`docs/aurabot-diagnostico.md`](docs/aurabot-diagnostico.md).
 
 ## 10. API de la biblioteca dinámica
 
-`libaurabot.so` es la **única** vía por la que el servidor web accede al
-hardware. Trabaja con conceptos del robot (motor izquierdo/derecho, sensores,
-LED, volumen) y **no expone números de GPIO ni configuración de PWM**. El
-contrato público está en
+El servidor web utiliza `libaurabot.so` para solicitar operaciones de hardware
+al daemon. La interfaz de control del robot trabaja con motores izquierdo y
+derecho, sensores, LED y volumen, sin requerir números de GPIO ni parámetros de
+PWM. Las funciones de diagnóstico de pines se describen más adelante.
+El contrato público se encuentra en
 `meta-ce1113/recipes-lib/aurabot-api/files/include/aurabot.h`.
 
-Funciones destacadas:
+Algunas de las funciones de la API son:
 
 | Función | Descripción |
 | --- | --- |
@@ -568,8 +566,7 @@ La función configura el pin como entrada y normaliza la lectura para que el val
 
 Los códigos enumerados para `aurabot.h` se encuentran definidos en la API pública. Sin embargo, no todas las funciones pueden producir todos los códigos: la respuesta depende de la validación local, la operación solicitada y el resultado del servidor.
 
-En las bibliotecas `libgpio` y `libpwm`, los errores se expresan como `-1` y se acompañan de `errno`. El detalle exacto depende de la operación que falle. Para documentar exhaustivamente cada condición, deben contrastarse también las implementaciones `.c` y las validaciones del servidor, no únicamente los prototipos de los encabezados.
-
+En las bibliotecas `libgpio` y `libpwm`, los errores se expresan como `-1` y se acompañan de `errno`. El detalle exacto depende de la operación que falle. Las condiciones de error se determinan tanto en las implementaciones `.c` como en las validaciones del servidor; los prototipos de los encabezados no describen todos los casos.
 
 Notas de uso: cada petición CGI abre su propia conexión y la cierra al terminar;
 la API mantiene una conexión global por proceso y **no es reentrante** para varios hilos.
@@ -612,39 +609,58 @@ Los eventos interrumpen la canción en curso y la reanudan en el mismo punto.
 | `aurabot-wifi.service` | `wpa_supplicant` (cliente) | `Restart=on-failure` |
 | `aurabot-wifi-dhcp.service` | Cliente DHCP | `Restart=on-failure` |
 
-Se habilitan durante la construcción de la imagen (`multi-user.target`), no hay
-interfaz gráfica local y cada unidad usa `StartLimitBurst` para evitar ciclos de
-reinicio infinitos. Detalle en [`docs/development/systemd-services.md`](docs/development/systemd-services.md).
+Los servicios quedan habilitados al construir la imagen y se inician con
+`multi-user.target`. El sistema no incluye una interfaz gráfica local. Cada
+unidad usa `StartLimitBurst` para limitar los intentos de reinicio.
+La configuración se describe en [`docs/development/systemd-services.md`](docs/development/systemd-services.md).
 
 ---
 
 ## 12. Eficiencia de recursos
 
-Se mide **en el target** con el script incluido en la imagen:
+Las mediciones de la Raspberry Pi están en [aurabot-metrics.txt](aurabot-metrics.txt).
+El registro se obtuvo con el script incluido en la imagen:
 
 ```sh
 aurabot-metrics | tee /media/audio/aurabot-metrics.txt
 ```
 
-con navegación autónoma, audio y una sesión web activos simultáneamente.
+La condición de prueba prevista es ejecutar navegación autónoma, audio y una
+sesión web al mismo tiempo. La captura confirma que los servicios estaban en
+ejecución y que existía un proceso `mpg123`, aunque no registra el modo del
+robot, la reproducción audible ni la actividad de una sesión web.
 
-| Métrica | Herramienta / método | Referencia | Resultado |
+El equipo reportó el kernel `Linux 6.6.63-v7l`. El campo `captured_at` contiene
+`Thu May 29 19:34:55 UTC 2025`; corresponde al reloj del equipo y el archivo no
+incluye una verificación de que estuviera sincronizado.
+
+| Métrica | Herramienta / método | Referencia | Resultado registrado |
 | --- | --- | --- | --- |
-| Tamaño del rootfs | `df -kP /` y `du -skx /` | ≤ 200 MB | **PENDIENTE** |
-| Tiempo de arranque hasta servicio operativo | `systemd-analyze time` y `systemd-analyze critical-chain webapp-httpd.service` | ≤ 15 s | **PENDIENTE** |
-| RAM en operación normal | `free -b` y `systemctl show <servicio> -p MemoryCurrent` | — | **PENDIENTE** |
-| CPU en operación normal | `systemctl show <servicio> -p CPUUsageNSec` (muestra de 5 s) | — | **PENDIENTE** |
+| Espacio del rootfs | `df -kP /` y `du -skx /` | ≤ 200 MB | `du`: 55 446 KiB (54,15 MiB); `df`: 63 828 KiB usados (62,33 MiB) en un sistema de archivos de 118 115 KiB (115,35 MiB), con 58 % de ocupación. Los valores están por debajo de la referencia. |
+| Tiempo de arranque | `systemd-analyze time` | ≤ 15 s | 8,540 s en total: 1,952 s de kernel y 6,587 s de espacio de usuario. Cumple la referencia. `multi-user.target` se alcanzó a los 6,516 s del espacio de usuario. |
+| Activación del servicio web | `systemd-analyze critical-chain webapp-httpd.service` | ≤ 15 s | `webapp-httpd.service` se activó a los 6,186 s del espacio de usuario, después de audio (6,175 s) y del daemon (6,181 s). La marca de activación no mide el tiempo de respuesta de una petición HTTP. |
+| Memoria del sistema | Salida de `free -b` | Sin umbral definido | Total: 1 912 536; usada: 49 864; libre: 1 808 440; compartida: 9 028; búferes/caché: 54 232; disponible: 1 809 996. Swap: 0. Se conservan los valores del archivo, cuya salida no identifica la unidad. |
+| Memoria por servicio | `systemctl show <servicio> -p MemoryCurrent` | Sin umbral definido | Los cinco servicios devuelven `[not set]`; la captura no proporciona una medida de memoria por unidad. |
+| CPU por servicio | Diferencia de `CPUUsageNSec` durante 5 s | Sin umbral definido | Audio: 1,20 %; daemon: 15,08 %; web: 2,90 %; Wi-Fi: 0,00 %; DHCP: 0,00 %. Total de las cinco unidades: 19,18 % de un núcleo. |
 
-> **PENDIENTE:** copiar la salida real a `docs/evidence/aurabot-metrics.txt` y
-> resumir aquí los valores. Si el rootfs supera 200 MB o el arranque supera 15 s,
-> añadir la justificación técnica (qué paquetes lo causan y por qué son indispensables).
+Los datos de `df` y `du` describen el espacio del sistema de archivos y de los
+archivos, respectivamente; no corresponden al tamaño del WIC comprimido. Tanto
+el espacio registrado como el arranque quedan por debajo de 200 MB y 15 s, por
+lo que estos resultados no requieren justificar un exceso sobre esas referencias.
+La sección 13 explica la función de los paquetes incluidos.
+
+El script calcula el porcentaje de CPU a partir del tiempo consumido por cada
+unidad en cinco segundos: 100 % equivale a ocupar un núcleo durante todo ese
+intervalo. Los valores describen esa muestra, no el consumo máximo ni un
+promedio de toda la ejecución. Los contadores acumulados de `CPUUsageNSec`
+también se conservan en el archivo de métricas.
 
 ---
 
 ## 13. Justificación de paquetes
 
-Base: `core-image-minimal` (sin interfaz gráfica ni paquetes de prueba). Todo lo
-agregado más allá de esa base:
+La imagen parte de `core-image-minimal`, sin interfaz gráfica ni paquetes de
+prueba. Los paquetes adicionales cumplen las siguientes funciones:
 
 | Paquete | Por qué es necesario |
 | --- | --- |
@@ -655,7 +671,7 @@ agregado más allá de esa base:
 | `aurabot-audio-server` | Reproducción MP3 concurrente y sonidos de evento. |
 | `webapp` | CGI en C y frontend responsive del panel de control. |
 | BusyBox con httpd/CGI | Servidor web liviano; evita Python/Flask y reduce el rootfs. |
-| SQLite y `libxcrypt` (bcrypt) | Base de usuarios y hash de contraseñas para el login. 
+| SQLite y `libxcrypt` (bcrypt) | Base de usuarios y hash de contraseñas para el login.
 | `mpg123` | Decodificador/reproductor MP3. |
 | `packagegroup-base-alsa`, `alsa-utils-amixer` | Soporte ALSA y control de volumen. |
 | `kernel-module-snd-bcm2835-*` | Controlador del audio analógico (jack 3.5 mm). |
@@ -666,8 +682,9 @@ agregado más allá de esa base:
 | `linux-firmware-rpidistro-bcm43455`, `brcmfmac-firmware-fix`, `kernel-module-brcmfmac`, `kernel-module-brcmfmac-wcc` | Firmware y controlador del chip Wi-Fi de la Raspberry Pi 4. |
 | `systemd-analyze` | Medir el tiempo de arranque (métrica obligatoria). |
 
-Se excluyen deliberadamente `kernel-modules` (metapaquete global), aplicaciones
-de prueba (`packagegroup-ce1113-test`), acceso SSH sin contraseña y cualquier GUI.
+La imagen excluye el metapaquete global `kernel-modules`, las aplicaciones de
+prueba de `packagegroup-ce1113-test`, el acceso SSH sin contraseña y las
+interfaces gráficas.
 
 ---
 
@@ -686,11 +703,11 @@ de prueba (`packagegroup-ce1113-test`), acceso SSH sin contraseña y cualquier G
 La integración HTTP cubre login correcto/incorrecto, SQLite, bcrypt, CSRF,
 permisos por rol, expiración de sesión, acceso no autorizado, exclusión entre dos
 clientes, renovación y expiración de la concesión, mapa, audio, validación de
-parámetros y parada de emergencia. **QEMU no reemplaza las pruebas en la
-Raspberry Pi:** GPIO, PWM, motores, sensores, audio físico y temporización deben
-verificarse en el hardware real.
+parámetros y parada de emergencia. Las pruebas en QEMU se complementan con
+pruebas en la Raspberry Pi para verificar GPIO, PWM, motores, sensores, salida
+de audio y temporización en el hardware real.
 
-La integración continua (`.github/workflows/validation.yml`) corre en cada push
+La integración continua (`.github/workflows/validation.yml`) se ejecuta en cada push
 y Pull Request hacia `develop` y `main`: valida el repositorio y compila de forma
 nativa las mismas fuentes que consume la receta `aurabot`.
 
@@ -698,19 +715,23 @@ nativa las mismas fuentes que consume la receta `aurabot`.
 
 ## 15. Evidencias
 
-Guardar en `docs/evidence/` (con fecha, commit, imagen y condiciones de prueba en `target-run.md`):
+La captura de recursos y del estado de systemd está disponible en
+[aurabot-metrics.txt](aurabot-metrics.txt), en la raíz del repositorio. Para las
+demás evidencias se utiliza `docs/evidence/`, con fecha, commit, imagen y
+condiciones de prueba en `target-run.md`.
 
-| Evidencia | Archivo | Estado |
+| Evidencia | Archivo o referencia | Estado de la evidencia |
 | --- | --- | --- |
-| Fragmento de `log.do_compile` con compilador ARM y enlazado exitosos | `log-do-compile-arm.txt` | PENDIENTE |
-| SHA-256 del WIC y manifest | salida de `check_image.sh --report` | PENDIENTE |
-| Ejecución de servicios y reinicio (`NRestarts` aumenta tras `systemctl kill`) | `systemd-target.txt` | PENDIENTE |
-| Métricas de recursos | `aurabot-metrics.txt` | PENDIENTE |
-| `aurabotctl status` con ambos sensores y 4 LED | captura | PENDIENTE |
-| Panel web autenticado con mapa y audio | captura | PENDIENTE |
-| MP3 reproduciéndose mientras el robot navega | captura/video | PENDIENTE |
-| Transición autónomo/manual y reacción ante obstáculo | video | PENDIENTE |
-| Circuito: aislamiento, BMS y rieles separados | fotos y esquemático | PENDIENTE |
+| Fragmento de `log.do_compile` con compilador ARM y enlazado exitosos | `docs/evidence/log-do-compile-arm.txt` | No adjunto al registro de métricas. |
+| SHA-256 del WIC y manifest | Salida de `check_image.sh --report` | No incluidos en el registro de métricas. |
+| Ejecución de servicios | [aurabot-metrics.txt](aurabot-metrics.txt), sección `[services]` | Cinco unidades en `active/running`, todas con `NRestarts=0`. |
+| Reinicio después de `systemctl kill` | `docs/evidence/systemd-target.txt` | La captura no incluye esta prueba ni un incremento de `NRestarts`. |
+| Métricas de recursos y arranque | [aurabot-metrics.txt](aurabot-metrics.txt) | Registro disponible; resultados e interpretación en la sección 12. |
+| `aurabotctl status` con ambos sensores y 4 LED | Captura del estado del robot | No incluida en el registro de métricas. |
+| Panel web autenticado con mapa y audio | Captura del navegador | No incluida en el registro de métricas. |
+| MP3 reproduciéndose mientras el robot navega | Captura o video | El registro muestra los procesos de audio y del robot en ejecución; no incluye una comprobación audiovisual. |
+| Transición autónomo/manual y reacción ante obstáculo | Video | No incluidos en el registro de métricas. |
+| Circuito: aislamiento, BMS y rieles separados | Fotos y esquemático | No incluidos en el registro de métricas. |
 
 Cómo obtener el log de compilación cruzada:
 
@@ -723,21 +744,43 @@ find "$POKY_DIR/build-raspberrypi4" -path '*/temp/log.do_compile' \
 
 ## 16. Resultados y limitaciones
 
-**Resultados verificados en software** (pruebas con hardware simulado, CI y build Yocto completo):
-navegación reactiva, mapa, concesión de control, autenticación y roles, API HTTP,
-servicio de audio y verificación de imagen.
+Las verificaciones de software descritas para el proyecto abarcan navegación
+reactiva, mapa, concesión de control, autenticación y roles, API HTTP, servicio
+de audio y verificación de imagen, mediante pruebas con hardware simulado,
+integración continua y construcción completa en Yocto.
 
-**PENDIENTE:** resumir los resultados obtenidos en el robot físico (recorrido
-real, giro, concurrencia audio/navegación, PWM) con enlaces a las evidencias.
+En la Raspberry Pi, [aurabot-metrics.txt](aurabot-metrics.txt) registra el
+arranque y el estado de los servicios administrados por systemd:
 
-Limitaciones conocidas:
+| Servicio | Estado | Reinicios registrados | CPU en la muestra de 5 s |
+| --- | --- | --- | --- |
+| `aurabot-audio.service` | `active/running` | 0 | 1,20 % |
+| `aurabot.service` | `active/running` | 0 | 15,08 % |
+| `webapp-httpd.service` | `active/running` | 0 | 2,90 % |
+| `aurabot-wifi.service` | `active/running` | 0 | 0,00 % |
+| `aurabot-wifi-dhcp.service` | `active/running` | 0 | 0,00 % |
 
-- Infrarrojos digitales (obstáculo / libre): el mapa es aproximado y no equivale a SLAM.
-- PWM por software: sin la temporización determinista del PWM por hardware.
-- HTTP sin TLS: usar solo en una WLAN de confianza.
-- El estado de audio en la web refleja las órdenes aceptadas; no confirma fin de pista ni errores del reproductor.
-- La playlist se edita con `load_audio.sh`, no desde el panel.
-- Requerimientos opcionales (detección de desnivel, notificación de fin de ciclo, playlist editable en la web): no implementados. **PENDIENTE:** ajustar si se implementó alguno.
+El arranque total fue de 8,540 s y los archivos del rootfs ocuparon 54,15 MiB
+según `du`. Ambos resultados cumplen las referencias de 15 s y 200 MB. El
+listado de procesos muestra el daemon, el servidor de audio, `mpg123`, el
+servidor HTTP y los clientes de Wi-Fi y DHCP en ejecución al tomar la captura.
+
+El registro permite comprobar la ejecución simultánea de esos procesos y el
+consumo de CPU de la muestra. No contiene mediciones de recorrido real, giros
+o señal PWM, ni confirma que el audio fuera audible mientras el robot navegaba.
+Tampoco demuestra la recuperación después de provocar un fallo: `NRestarts=0`
+indica que systemd no había registrado reinicios automáticos de esas unidades
+en el momento de la consulta. La memoria por servicio no está disponible
+porque `MemoryCurrent` figura como `[not set]`.
+
+El sistema tiene las siguientes limitaciones:
+
+- Los infrarrojos entregan una lectura digital de obstáculo o espacio libre; el mapa es aproximado y no equivale a SLAM.
+- El PWM por software depende de la planificación de Linux y no tiene la temporización determinista del PWM por hardware.
+- El panel utiliza HTTP sin TLS y debe usarse en una WLAN de confianza.
+- El estado de audio de la web refleja las órdenes aceptadas; no confirma el fin de una pista ni los errores del reproductor.
+- La lista de reproducción se modifica con `load_audio.sh`, no desde el panel.
+- Los requisitos opcionales de detección de desnivel, notificación de fin de ciclo y edición de la lista de reproducción desde la web no están implementados.
 
 ---
 
@@ -745,7 +788,7 @@ Limitaciones conocidas:
 
 - Ramas permanentes: `main` (estable, solo vía Pull Request con ≥ 1 reviewer) y `develop` (integración).
 - Ramas de trabajo desde `develop` con formato `tipo/descripcion-corta`: `feature/`, `fix/`, `task/`, `docs/`, `test/`, `refactor/`. Se eliminan al integrar el PR.
-- Planeamiento y seguimiento de tareas y errores con **Issues**.
+- Las tareas y los errores se registran y se siguen mediante Issues.
 - Activar los hooks una vez por clon:
 
 ```bash
@@ -775,9 +818,8 @@ Convención de commits actual (validada por el hook `commit-msg`):
 - [Evidencias de entrega](docs/evidence/README.md)
 - [Entorno Docker + QEMU](docs/development/docker-qemu-environment.md)
 - [Aprendizaje continuo](Atributos/Documento_de_Aprendizaje_Continuo__AC_.pdf)
-- [Atributo Disenio ](Atributos/Documento_de_Diseno__DI_.pdf)
-
+- [Atributo de diseño](Atributos/Documento_de_Diseno__DI_.pdf)
 
 ## Licencia
 
-MIT license
+Licencia MIT
