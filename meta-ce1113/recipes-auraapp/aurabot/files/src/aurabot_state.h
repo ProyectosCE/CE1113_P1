@@ -21,6 +21,7 @@ typedef struct {
     int maneuver_distance_mm;
     int maneuver_angle_mrad;
     int turn_direction;
+    int obstacle_audio_active;
     int initialized;
 } aurabot_state_t;
 

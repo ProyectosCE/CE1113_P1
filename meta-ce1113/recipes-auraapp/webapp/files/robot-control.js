@@ -16,10 +16,12 @@
     let epoch = 0;
     let activeButton = null;
     let map = null;
+    const mapView = { zoom: 1, panX: 0, panY: 0, pointerId: null, x: 0, y: 0 };
     let heartbeatPending = false;
     let mutationRevision = 0;
     let polling = false;
     let pollTimer = null;
+    let canOperate = false;
 
     async function request(parameters, post = false) {
         const controller = new AbortController();
@@ -37,13 +39,13 @@
 
     function refreshControls() {
         const manual = connected && status?.mode === 2;
-        modeSwitch.disabled = !connected || commandPending || (status?.control_busy && !ownsControl);
+        modeSwitch.disabled = !canOperate || !connected || commandPending || (status?.control_busy && !ownsControl);
         byId("robot-manual-mode").disabled = modeSwitch.disabled || status?.mode === 2;
-        byId("robot-claim").disabled = !manual || ownsControl || status?.control_busy || commandPending;
+        byId("robot-claim").disabled = !canOperate || !manual || ownsControl || status?.control_busy || commandPending;
         byId("robot-release").disabled = !ownsControl || commandPending;
         byId("robot-stop").disabled = !ownsControl;
         const hasMotor = status?.capabilities?.motors?.some(Boolean) ?? false;
-        moveButtons.forEach(button => { button.disabled = !manual || !ownsControl || !hasMotor; });
+        moveButtons.forEach(button => { button.disabled = !canOperate || !manual || !ownsControl || !hasMotor; });
         byId("robot-owner").textContent = !connected ? "Sin conexión" :
             ownsControl ? "Esta pestaña tiene el control" :
             status?.control_busy ? "Otra pestaña tiene el control" : "Control libre";
@@ -55,7 +57,9 @@
 
     function releaseBeacon() {
         if (!ownsControl) return;
-        const body = new URLSearchParams({ op: "robot-release", token });
+        const body = new URLSearchParams({
+            op: "robot-release", token, csrf: window.aurabotApi.csrf || ""
+        });
         if (!navigator.sendBeacon(endpoint, body)) {
             fetch(endpoint, { method: "POST", body, keepalive: true }).catch(() => {});
         }
@@ -108,24 +112,78 @@
         if (!map || !status) return;
         const canvas = byId("robot-map");
         const context = canvas.getContext("2d");
-        const cellSize = canvas.width / map.width;
+        const bounds = canvas.getBoundingClientRect();
+        const width = Math.max(1, bounds.width);
+        const height = Math.max(1, bounds.height);
+        const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+        const pixelWidth = Math.round(width * pixelRatio);
+        const pixelHeight = Math.round(height * pixelRatio);
+        if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+            canvas.width = pixelWidth;
+            canvas.height = pixelHeight;
+        }
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        context.clearRect(0, 0, width, height);
+        const fitScale = Math.min(width / map.width, height / map.height);
+        const cellSize = fitScale * mapView.zoom;
+        const mapWidth = map.width * cellSize;
+        const mapHeight = map.height * cellSize;
+        const offsetX = (width - mapWidth) / 2 + mapView.panX;
+        const offsetY = (height - mapHeight) / 2 + mapView.panY;
         const colors = ["#e2e8f0", "#93c5fd", "#ef4444"];
         map.cells.forEach((value, index) => {
             const column = index % map.width;
             const row = Math.floor(index / map.width);
             context.fillStyle = colors[value] || colors[0];
-            context.fillRect(column * cellSize, (map.height - row - 1) * cellSize, cellSize, cellSize);
+            context.fillRect(offsetX + column * cellSize,
+                offsetY + (map.height - row - 1) * cellSize,
+                Math.ceil(cellSize), Math.ceil(cellSize));
         });
-        const x = (status.pose.x_mm / 100 + map.width / 2 + 0.5) * cellSize;
-        const y = (map.height / 2 - status.pose.y_mm / 100 - 0.5) * cellSize;
+        if (cellSize >= 9) {
+            context.strokeStyle = "rgba(15, 23, 42, 0.08)";
+            context.lineWidth = 1;
+            for (let column = 0; column <= map.width; column++) {
+                context.beginPath();
+                context.moveTo(offsetX + column * cellSize, offsetY);
+                context.lineTo(offsetX + column * cellSize, offsetY + mapHeight);
+                context.stroke();
+            }
+            for (let row = 0; row <= map.height; row++) {
+                context.beginPath();
+                context.moveTo(offsetX, offsetY + row * cellSize);
+                context.lineTo(offsetX + mapWidth, offsetY + row * cellSize);
+                context.stroke();
+            }
+        }
+        const x = offsetX + ((status.pose.x_mm - map.origin_x_mm) / map.cell_mm + 0.5) * cellSize;
+        const y = offsetY + (map.height - (status.pose.y_mm - map.origin_y_mm) / map.cell_mm - 0.5) * cellSize;
+        const robotSize = Math.max(7, Math.min(13, cellSize * 0.75));
         context.save();
         context.translate(x, y);
         context.rotate(-status.pose.heading_mrad / 1000);
         context.fillStyle = "#0f172a";
         context.beginPath();
-        context.moveTo(9, 0); context.lineTo(-6, -6); context.lineTo(-6, 6);
+        context.moveTo(robotSize, 0);
+        context.lineTo(-robotSize * 0.7, -robotSize * 0.65);
+        context.lineTo(-robotSize * 0.7, robotSize * 0.65);
         context.closePath(); context.fill(); context.restore();
-        byId("robot-map-revision").textContent = `Revisión ${map.revision} · celda de 10 cm · mapa aproximado`;
+        byId("robot-map-revision").textContent = `Revisión ${map.revision} · ${map.width} × ${map.height} celdas · zoom ${Math.round(mapView.zoom * 100)} %`;
+    }
+
+    function setMapZoom(value) {
+        const next = Math.max(0.5, Math.min(8, value));
+        const ratio = next / mapView.zoom;
+        mapView.panX *= ratio;
+        mapView.panY *= ratio;
+        mapView.zoom = next;
+        drawMap();
+    }
+
+    function resetMapView() {
+        mapView.zoom = 1;
+        mapView.panX = 0;
+        mapView.panY = 0;
+        drawMap();
     }
 
     function renderStatus(data) {
@@ -148,7 +206,7 @@
         byId("robot-audio").textContent = data.capabilities.audio ?
             `${["Detenido", "Reproduciendo", "Pausado", "Error"][data.audio.state]} · pista ${data.audio.track} · volumen ${data.audio.volume} %` : "Deshabilitado";
         document.querySelectorAll('[data-operation^="audio-"], #audio-volume, #audio-device-apply, #audio-track')
-            .forEach(element => { element.disabled = !data.capabilities.audio; });
+            .forEach(element => { element.disabled = !canOperate || !data.capabilities.audio; });
         if (!data.capabilities.audio) byId("audio-track-hint").textContent = "Audio deshabilitado en hardware_config.h.";
         if (data.capabilities.audio && document.activeElement !== byId("audio-volume")) {
             const volume = Math.max(0, Math.min(100, (data.audio.volume - 50) * 2));
@@ -276,6 +334,41 @@
         catch (error) { report({ ok: false, error: "No se pudo enviar la parada de emergencia" }); }
     });
 
+    const mapCanvas = byId("robot-map");
+    byId("map-zoom-in").addEventListener("click", () => setMapZoom(mapView.zoom * 1.25));
+    byId("map-zoom-out").addEventListener("click", () => setMapZoom(mapView.zoom / 1.25));
+    byId("map-reset").addEventListener("click", resetMapView);
+    mapCanvas.addEventListener("wheel", event => {
+        event.preventDefault();
+        setMapZoom(mapView.zoom * (event.deltaY < 0 ? 1.15 : 1 / 1.15));
+    }, { passive: false });
+    mapCanvas.addEventListener("pointerdown", event => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        mapView.pointerId = event.pointerId;
+        mapView.x = event.clientX;
+        mapView.y = event.clientY;
+        mapCanvas.setPointerCapture(event.pointerId);
+        mapCanvas.classList.add("dragging");
+    });
+    mapCanvas.addEventListener("pointermove", event => {
+        if (mapView.pointerId !== event.pointerId) return;
+        mapView.panX += event.clientX - mapView.x;
+        mapView.panY += event.clientY - mapView.y;
+        mapView.x = event.clientX;
+        mapView.y = event.clientY;
+        drawMap();
+    });
+    function stopMapDrag(event) {
+        if (mapView.pointerId !== event.pointerId) return;
+        mapView.pointerId = null;
+        mapCanvas.classList.remove("dragging");
+    }
+    mapCanvas.addEventListener("pointerup", stopMapDrag);
+    mapCanvas.addEventListener("pointercancel", stopMapDrag);
+    mapCanvas.addEventListener("dblclick", resetMapView);
+    window.addEventListener("resize", drawMap);
+
     setInterval(async () => {
         if (!ownsControl || document.hidden || heartbeatPending || commandPending) return;
         heartbeatPending = true;
@@ -288,12 +381,16 @@
         if (document.hidden) { releaseBeacon(); forgetControl(); }
     });
     window.addEventListener("pagehide", () => { releaseBeacon(); forgetControl(); });
-    window.addEventListener("aurabot:authenticated", startPolling);
+    window.addEventListener("aurabot:authenticated", event => {
+        canOperate = event.detail.role === "operator" || event.detail.role === "admin";
+        startPolling();
+    });
     window.addEventListener("aurabot:unauthenticated", () => {
         if (pollTimer !== null) clearTimeout(pollTimer);
         pollTimer = null;
         polling = false;
         connected = false;
+        canOperate = false;
         forgetControl();
     });
     window.addEventListener("aurabot:before-logout", event => {

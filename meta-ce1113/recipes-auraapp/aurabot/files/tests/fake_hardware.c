@@ -20,6 +20,8 @@ static int left_tick_remainder;
 static int right_tick_remainder;
 static int audio_volume = 50;
 static int led_values[4];
+static char audio_events[32][16];
+static unsigned int audio_event_count;
 
 static long long elapsed_ms(const struct timespec *start,
                             const struct timespec *end)
@@ -33,6 +35,7 @@ int hardware_init(void)
 {
     initialized = 1;
     left_speed = right_speed = 0;
+    audio_event_count = 0U;
     clock_gettime(CLOCK_MONOTONIC, &sample_started);
     return 0;
 }
@@ -128,7 +131,14 @@ int hardware_set_leds(int power, int manual, int autonomous, int obstacle)
 }
 
 int hardware_audio_event(const char *event_name)
-{ return event_name == NULL ? -1 : 0; }
+{
+    if (event_name == NULL || audio_event_count >= 32U ||
+        strlen(event_name) >= sizeof(audio_events[0])) return -1;
+    snprintf(audio_events[audio_event_count], sizeof(audio_events[0]),
+             "%s", event_name);
+    ++audio_event_count;
+    return 0;
+}
 int hardware_test_gpio(int pin, int value, int duty, int pwm)
 {
     (void)value; (void)duty; (void)pwm;
@@ -185,4 +195,14 @@ void fake_hardware_get_leds(int *power, int *manual, int *autonomous, int *obsta
     *manual = led_values[1];
     *autonomous = led_values[2];
     *obstacle = led_values[3];
+}
+
+unsigned int fake_hardware_audio_event_count(void)
+{
+    return audio_event_count;
+}
+
+const char *fake_hardware_audio_event(unsigned int index)
+{
+    return index < audio_event_count ? audio_events[index] : NULL;
 }

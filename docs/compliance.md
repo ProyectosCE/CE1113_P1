@@ -12,10 +12,10 @@ cumplidos los puntos físicos únicamente porque el software los configure.
 | Cuatro LEDs | Sistema, manual, autónomo y obstáculo en `state_outputs.c` | Implementado; verificar físicamente |
 | MP3 concurrente | `aurabot-audio-server.service`, `libaudio.so`, ALSA/mpg123 | Implementado; verificar parlante y concurrencia |
 | Lista/play/pause/stop/volumen | API, CGI y panel web | Implementado y cubierto por integración |
-| Sonidos de evento | `boot`, `autonomous`, `obstacle`, `manual` | Implementado; playlist debe conservar esas cuatro entradas |
+| Sonidos de evento | `boot`, `autonomous`, `obstacle`, `manual` | Empaquetados por la receta fuera de la partición musical; interrupción con reanudación |
 | Cambio autónomo/manual y dirección remota | Concesión exclusiva, heartbeat y parada segura | Implementado y probado con hardware simulado |
-| Sensores, mapa y LEDs en tiempo real | JSON de estado + mapa incremental + canvas web | Implementado; protocolo AuraBot v3 |
-| Inicio de sesión | SHA-256 salteado/iterado y cookie de sesión | Implementado; HTTP requiere una WLAN confiable |
+| Sensores, mapa y LEDs en tiempo real | JSON de estado + mapa incremental dinámico + canvas navegable | Implementado; protocolo AuraBot v4 |
+| Inicio de sesión | Usuarios SQLite, hashes bcrypt, roles, CSRF y cookie de sesión | Implementado; WPA2 protege el enlace, pero HTTP no ofrece TLS |
 | systemd y reinicio ante fallos | Unidades propias con `Restart=on-failure` | Implementado; capturar `NRestarts` en target |
 | Biblioteca dinámica propia | `libaurabot.so` es la única interfaz usada por CGI/herramientas | Implementado |
 | Desarrollo cruzado CMake/Yocto | Recetas CMake y capa `meta-ce1113` | Implementado; conservar log real de BitBake |

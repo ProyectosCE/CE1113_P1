@@ -10,19 +10,25 @@
     const usernameInput = document.getElementById("auth-username");
     const passwordInput = document.getElementById("auth-password");
     let authenticated = false;
+    let currentRole = null;
+    let csrfToken = null;
 
-    function showApplication(username) {
+    function showApplication(username, role, csrf) {
         authenticated = true;
+        currentRole = role;
+        csrfToken = csrf;
         authScreen.hidden = true;
         appShell.hidden = false;
-        document.getElementById("auth-user").textContent = username || "Sesión activa";
+        document.getElementById("auth-user").textContent = `${username || "Sesión activa"} · ${role}`;
         message.textContent = "";
-        window.dispatchEvent(new CustomEvent("aurabot:authenticated", { detail: { username } }));
+        window.dispatchEvent(new CustomEvent("aurabot:authenticated", { detail: { username, role } }));
     }
 
     function showLogin(text = "") {
         const wasAuthenticated = authenticated;
         authenticated = false;
+        currentRole = null;
+        csrfToken = null;
         appShell.hidden = true;
         authScreen.hidden = false;
         message.textContent = text;
@@ -33,7 +39,9 @@
 
     async function request(parameters, options = {}) {
         const post = options.post === true;
-        const body = new URLSearchParams(parameters);
+        const values = { ...parameters };
+        if (post && csrfToken && parameters.op !== "auth-login") values.csrf = csrfToken;
+        const body = new URLSearchParams(values);
         const response = await fetch(post ? endpoint : `${endpoint}?${body}`, {
             method: post ? "POST" : "GET",
             body: post ? body : undefined,
@@ -57,7 +65,9 @@
 
     window.aurabotApi = Object.freeze({
         request,
-        get authenticated() { return authenticated; }
+        get authenticated() { return authenticated; },
+        get role() { return currentRole; },
+        get csrf() { return csrfToken; }
     });
 
     form.addEventListener("submit", async event => {
@@ -75,7 +85,7 @@
                 passwordInput.select();
                 return;
             }
-            showApplication(data.username);
+            showApplication(data.username, data.role, data.csrf);
         } catch (error) {
             message.textContent = `No se pudo conectar con AuraBot: ${error.message}`;
         } finally {
@@ -97,7 +107,7 @@
     (async () => {
         try {
             const data = await request({ op: "auth-status" });
-            if (data.authenticated) showApplication(data.username);
+            if (data.authenticated) showApplication(data.username, data.role, data.csrf);
             else showLogin();
         } catch (error) {
             showLogin(`No se pudo conectar con AuraBot: ${error.message}`);

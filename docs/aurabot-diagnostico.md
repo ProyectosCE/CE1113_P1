@@ -123,17 +123,18 @@ journalctl -b -u aurabot-wifi.service -u aurabot-wifi-dhcp.service
 dmesg | tail -60
 ```
 
-Sustituir wlan0 si el nombre de interfaz es distinto. `wpa_state=COMPLETED`
-significa asociación completada. Si aparece COMPLETED sin IPv4, revisar DHCP
-y el router. Si no aparece COMPLETED, revisar asociación, señal y credenciales
-mediante los registros de wpa_supplicant. No publicar contraseñas.
+Sustituir wlan0 si el nombre de interfaz es distinto. `wpa_cli` debe mostrar
+`wpa_state=COMPLETED` y el SSID configurado; `ip` debe mostrar la dirección
+entregada por el router. Si se asocia pero no obtiene una dirección, revisar
+`aurabot-wifi-dhcp.service`. Si tiene dirección pero no abre la web, revisar
+`webapp-httpd.service`. No publicar la clave WPA2.
 
-`aurabot-wifi.service` mantiene `wpa_supplicant` y
-`aurabot-wifi-dhcp.service` mantiene el cliente DHCP. systemd reinicia cada
+`aurabot-wifi.service` mantiene `wpa_supplicant` en modo cliente y
+`aurabot-wifi-dhcp.service` ejecuta el cliente DHCP. systemd reinicia cada
 proceso si falla y el journal conserva su diagnóstico.
 
 ```sh
-systemctl restart aurabot-wifi.service aurabot-wifi-dhcp.service
+systemctl restart aurabot-wifi.service
 ```
 
 Detener AuraBot no modifica la configuración WiFi ni sus enlaces de arranque.

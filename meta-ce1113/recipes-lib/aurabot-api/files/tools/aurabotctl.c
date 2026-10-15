@@ -51,14 +51,15 @@ static int show_status(void)
 
 static int show_map(void)
 {
-    unsigned char cells[AURABOT_MAP_CELLS];
-    unsigned int required;
-    int result = aurabot_get_map(cells, sizeof(cells), &required);
+    aurabot_map_snapshot_t map;
+    int result = aurabot_get_map_snapshot(&map);
     unsigned int row, column;
     if (result != AURABOT_OK) return print_error(result);
-    for (row = 0; row < AURABOT_MAP_HEIGHT; ++row) {
-        for (column = 0; column < AURABOT_MAP_WIDTH; ++column) {
-            unsigned char cell = cells[row * AURABOT_MAP_WIDTH + column];
+    printf("map=%ux%u origin=%d,%d mm\n", map.width, map.height,
+           map.origin_x_mm, map.origin_y_mm);
+    for (row = 0; row < map.height; ++row) {
+        for (column = 0; column < map.width; ++column) {
+            unsigned char cell = map.cells[row * map.width + column];
             putchar(cell == AURABOT_CELL_OBSTACLE ? '#' :
                     cell == AURABOT_CELL_VISITED ? '.' : '?');
         }

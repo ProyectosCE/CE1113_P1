@@ -18,8 +18,6 @@
         <symbol id="icon-control" viewBox="0 0 24 24"><path d="M8 6h8M12 2v8M8 18h8M12 14v8M6 8a4 4 0 1 0 0 8M18 8a4 4 0 1 1 0 8"/></symbol>
         <symbol id="icon-map" viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Zm6-3v15M15 6v15"/></symbol>
         <symbol id="icon-music" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13M9 9l11-2M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM17 19a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></symbol>
-        <symbol id="icon-calculator" viewBox="0 0 24 24"><path d="M5 2h14v20H5V2Zm3 3h8v4H8V5Zm0 8h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01"/></symbol>
-        <symbol id="icon-code" viewBox="0 0 24 24"><path d="m8 9-4 3 4 3M16 9l4 3-4 3M14 5l-4 14"/></symbol>
         <symbol id="icon-terminal" viewBox="0 0 24 24"><path d="M4 5h16v14H4V5Zm3 4 3 3-3 3M12 15h5"/></symbol>
         <symbol id="icon-stop" viewBox="0 0 24 24"><path d="M7 7h10v10H7V7Z"/></symbol>
         <symbol id="icon-power" viewBox="0 0 24 24"><path d="M12 2v10M7.1 5.6a8 8 0 1 0 9.8 0"/></symbol>
@@ -45,7 +43,7 @@
                 <div class="field">
                     <label for="auth-password">Contraseña</label>
                     <input id="auth-password" name="password" type="password"
-                        autocomplete="current-password" maxlength="256" required>
+                        autocomplete="current-password" maxlength="72" required>
                 </div>
                 <p id="auth-message" class="form-message" aria-live="polite"></p>
                 <button id="auth-submit" type="submit" class="full-width">
@@ -132,8 +130,13 @@
             <section class="card span-5 map-card" aria-labelledby="map-title">
                 <div class="card-heading">
                     <div><p class="eyebrow">Navegación</p><h2 id="map-title"><svg class="icon"><use href="#icon-map"/></svg>Mapa aproximado</h2></div>
+                    <div class="map-toolbar" aria-label="Controles del mapa">
+                        <button id="map-zoom-out" class="secondary map-control" type="button" aria-label="Alejar mapa">−</button>
+                        <button id="map-reset" class="secondary map-reset" type="button">Centrar</button>
+                        <button id="map-zoom-in" class="secondary map-control" type="button" aria-label="Acercar mapa">+</button>
+                    </div>
                 </div>
-                <div class="map-frame"><canvas id="robot-map" width="400" height="400" role="img" aria-label="Mapa del entorno y posición del robot"></canvas></div>
+                <div class="map-frame"><canvas id="robot-map" width="400" height="400" role="img" tabindex="0" aria-label="Mapa del entorno y posición del robot. Arrastre para navegar y use la rueda para ampliar."></canvas></div>
                 <p id="robot-map-revision" class="updated-text">Esperando mapa…</p>
                 <div class="map-legend" aria-label="Leyenda"><span><i class="visited"></i>Recorrido</span><span><i class="obstacle"></i>Obstáculo</span><span><i class="unknown"></i>Desconocido</span></div>
             </section>
@@ -172,29 +175,18 @@
                 </div>
             </section>
 
-            <section class="card span-7" aria-labelledby="math-title">
+            <section id="user-admin" class="card span-12" aria-labelledby="users-title" hidden>
                 <div class="card-heading">
-                    <div><p class="eyebrow">Herramientas</p><h2 id="math-title"><svg class="icon"><use href="#icon-calculator"/></svg>Operaciones matemáticas</h2></div>
+                    <div><p class="eyebrow">Administración</p><h2 id="users-title"><svg class="icon"><use href="#icon-lock"/></svg>Usuarios</h2></div>
                 </div>
-                <div class="form-grid">
-                    <div class="field"><label for="a">Valor A</label><input type="number" id="a" value="5" step="any"></div>
-                    <div class="field"><label for="b">Valor B</label><input type="number" id="b" value="3" step="any"></div>
-                </div>
-                <div class="button-grid math-buttons">
-                    <button data-operation="suma">Sumar</button>
-                    <button data-operation="resta">Restar</button>
-                    <button data-operation="mult">Multiplicar</button>
-                    <button data-operation="div">Dividir</button>
-                    <button data-operation="sqrt" class="secondary">√ Raíz de A</button>
-                </div>
-            </section>
-
-            <section class="card span-5 library-card" aria-labelledby="library-title">
-                <div class="card-heading">
-                    <div><p class="eyebrow">Diagnóstico</p><h2 id="library-title"><svg class="icon"><use href="#icon-code"/></svg>Biblioteca</h2></div>
-                </div>
-                <p>Compruebe la comunicación entre el CGI y la biblioteca de operaciones.</p>
-                <button id="message-button" class="full-width"><svg class="icon"><use href="#icon-terminal"/></svg>Probar liboperaciones</button>
+                <form id="user-create-form" class="user-create-form" autocomplete="off">
+                    <div class="field"><label for="new-username">Usuario</label><input id="new-username" maxlength="32" pattern="[A-Za-z0-9_.-]+" required></div>
+                    <div class="field"><label for="new-password">Contraseña</label><input id="new-password" type="password" minlength="4" maxlength="12" required></div>
+                    <div class="field"><label for="new-role">Rol</label><select id="new-role"><option value="viewer">Visor</option><option value="operator">Operador</option><option value="admin">Admin</option></select></div>
+                    <button type="submit">Añadir usuario</button>
+                </form>
+                <p id="users-message" class="form-message" aria-live="polite"></p>
+                <div id="users-list" class="users-list" aria-live="polite"></div>
             </section>
 
             <section class="card result-card span-12" aria-labelledby="result-title">
@@ -209,6 +201,7 @@
     </div>
 
     <script src="/auth.js"></script>
+    <script src="/users.js"></script>
     <script src="/app.js"></script>
     <script src="/robot-control.js"></script>
 </body>

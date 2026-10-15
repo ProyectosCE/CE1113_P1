@@ -12,9 +12,9 @@ RDEPENDS:${PN} += " \
     wpa-supplicant \
     wpa-supplicant-cli \
     busybox \
+    busybox-udhcpc \
+    iproute2 \
 "
-
-S = "${WORKDIR}"
 
 inherit systemd
 SYSTEMD_SERVICE:${PN} = "aurabot-wifi.service aurabot-wifi-dhcp.service"

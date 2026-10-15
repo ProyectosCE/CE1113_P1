@@ -26,6 +26,9 @@ int main(void)
     int power_led, manual_led, auto_led, obstacle_led;
 
     assert(robot_controller_init(&state) == AURABOT_OK);
+    assert(fake_hardware_audio_event_count() == 2U);
+    assert(strcmp(fake_hardware_audio_event(0), "boot") == 0);
+    assert(strcmp(fake_hardware_audio_event(1), "autonomous") == 0);
     assert(state.public_status.mode == AURABOT_MODE_AUTONOMOUS);
     assert(state.public_status.auto_state == AURABOT_AUTO_FORWARD);
     fake_hardware_get_motor_speeds(&left, &right);
@@ -35,6 +38,8 @@ int main(void)
     assert(state.public_status.power_led == 1 && state.public_status.manual_led == 0 &&
            state.public_status.autonomous_led == 1 && state.public_status.obstacle_led == 0);
     assert(robot_controller_set_mode(&state, AURABOT_MODE_MANUAL) == AURABOT_OK);
+    assert(fake_hardware_audio_event_count() == 3U);
+    assert(strcmp(fake_hardware_audio_event(2), "manual") == 0);
     fake_hardware_get_leds(&power_led, &manual_led, &auto_led, &obstacle_led);
     assert(power_led == 1 && manual_led == 1 && auto_led == 0);
     assert(state.public_status.power_led == 1 && state.public_status.manual_led == 1 &&
@@ -54,10 +59,22 @@ int main(void)
     assert(state.public_status.x_mm > 0);
     assert(robot_controller_release(&state, owner) == AURABOT_OK);
 
+    /* El obstáculo interrumpe también en modo manual y solo en flanco. */
+    fake_hardware_set_obstacles(1, 0);
+    assert(robot_controller_tick(&state) == AURABOT_OK);
+    assert(robot_controller_tick(&state) == AURABOT_OK);
+    assert(fake_hardware_audio_event_count() == 4U);
+    assert(strcmp(fake_hardware_audio_event(3), "obstacle") == 0);
+    fake_hardware_set_obstacles(0, 0);
+    assert(robot_controller_tick(&state) == AURABOT_OK);
+
     fake_hardware_set_obstacles(1, 0);
     assert(robot_controller_set_mode(&state, AURABOT_MODE_AUTONOMOUS) ==
            AURABOT_OK);
     assert(robot_controller_tick(&state) == AURABOT_OK);
+    assert(fake_hardware_audio_event_count() == 6U);
+    assert(strcmp(fake_hardware_audio_event(4), "autonomous") == 0);
+    assert(strcmp(fake_hardware_audio_event(5), "obstacle") == 0);
     assert(state.public_status.auto_state == AURABOT_AUTO_REVERSE);
     fake_hardware_get_leds(&power_led, &manual_led, &auto_led, &obstacle_led);
     assert(obstacle_led == 1);

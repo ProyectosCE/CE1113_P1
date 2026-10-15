@@ -321,12 +321,23 @@ int hardware_test_gpio(int pin, int value, int duty, int pwm)
 static int send_audio_command(const char *command)
 {
     int descriptor;
+    int attempt;
     unsigned int length;
     int result = 0;
+    struct timespec retry_delay = {
+        .tv_sec = 0,
+        .tv_nsec = AURABOT_AUDIO_READY_RETRY_NS
+    };
     if (command == NULL) { errno = EINVAL; return -1; }
     if (!AURABOT_AUDIO_ENABLE) { errno = ENODEV; return -1; }
-    descriptor = open(AURABOT_AUDIO_CONTROL_FIFO,
-                      O_WRONLY | O_NONBLOCK | O_CLOEXEC);
+    descriptor = -1;
+    for (attempt = 0; attempt <= AURABOT_AUDIO_READY_RETRIES; ++attempt) {
+        descriptor = open(AURABOT_AUDIO_CONTROL_FIFO,
+                          O_WRONLY | O_NONBLOCK | O_CLOEXEC);
+        if (descriptor >= 0 || (errno != ENOENT && errno != ENXIO)) break;
+        if (attempt < AURABOT_AUDIO_READY_RETRIES)
+            nanosleep(&retry_delay, NULL);
+    }
     if (descriptor < 0) return -1;
     length = (unsigned int)strlen(command);
     if (write(descriptor, command, length) != (int)length ||
@@ -338,13 +349,17 @@ static int send_audio_command(const char *command)
 
 int hardware_audio_event(const char *event_name)
 {
+    char command[48];
     if (event_name == NULL) return -1;
-    if (strcmp(event_name, "boot") == 0) return hardware_audio_play(0U);
-    if (strcmp(event_name, "manual") == 0) return hardware_audio_play(1U);
-    if (strcmp(event_name, "autonomous") == 0) return hardware_audio_play(2U);
-    if (strcmp(event_name, "obstacle") == 0) return hardware_audio_play(3U);
-    errno = EINVAL;
-    return -1;
+    if (strcmp(event_name, "boot") != 0 &&
+        strcmp(event_name, "manual") != 0 &&
+        strcmp(event_name, "autonomous") != 0 &&
+        strcmp(event_name, "obstacle") != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    snprintf(command, sizeof(command), "EVENT %s", event_name);
+    return send_audio_command(command);
 }
 
 int hardware_audio_play(unsigned int track_index)

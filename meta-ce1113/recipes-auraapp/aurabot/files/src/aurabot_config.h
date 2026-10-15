@@ -22,7 +22,8 @@
 /* Desplazamiento aproximado de cada sensor respecto al frente del robot. */
 #define AURABOT_SENSOR_OFFSET_MRAD 785
 /* Tamaño del lado de una celda del mapa, en milímetros. */
-#define AURABOT_MAP_CELL_MM 100
+#define AURABOT_MAP_INITIAL_RADIUS 10
+#define AURABOT_MAP_GROWTH_MARGIN 5
 /* Velocidad porcentual usada durante el avance autónomo. */
 #define AURABOT_AUTO_FORWARD_SPEED 45
 /* Magnitud porcentual usada durante el retroceso autónomo. */

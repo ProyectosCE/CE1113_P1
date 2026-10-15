@@ -1,6 +1,5 @@
 #include <stddef.h>
 
-#include "audio_controller.h"
 #include "aurabot_config.h"
 #include "autonomous.h"
 #include "fsm.h"
@@ -42,7 +41,6 @@ static int begin_reverse(aurabot_state_t *state)
 {
     int result = motion_stop(state);
     if (result != AURABOT_OK) return result;
-    audio_controller_event("obstacle");
     state->turn_direction = state->public_status.left_obstacle &&
         !state->public_status.right_obstacle ? -1 : 1;
     state->maneuver_distance_mm = 0;

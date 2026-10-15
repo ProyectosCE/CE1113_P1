@@ -2,6 +2,7 @@
 Description=AuraBot Wi-Fi DHCP client
 After=aurabot-wifi.service
 Requires=aurabot-wifi.service
+PartOf=aurabot-wifi.service
 Before=network-online.target
 StartLimitIntervalSec=60s
 StartLimitBurst=10
@@ -10,7 +11,7 @@ StartLimitBurst=10
 Type=simple
 Environment=WIFI_INTERFACE=wlan0
 EnvironmentFile=-/etc/default/aurabot-wifi
-ExecStart=/sbin/udhcpc -f -i ${WIFI_INTERFACE} -p /run/udhcpc-${WIFI_INTERFACE}.pid
+ExecStart=/sbin/udhcpc -f -i ${WIFI_INTERFACE}
 Restart=on-failure
 RestartSec=3s
 StandardOutput=journal

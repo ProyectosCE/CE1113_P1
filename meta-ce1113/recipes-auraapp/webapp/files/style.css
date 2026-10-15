@@ -320,8 +320,6 @@ button.danger:hover:not(:disabled) { background: var(--danger-dark); box-shadow:
 .button-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 20px; }
 .button-grid.two-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .button-grid.compact-top { margin-top: 12px; }
-.math-buttons { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.math-buttons button:last-child { grid-column: span 2; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 
 .drive-pad {
@@ -350,7 +348,12 @@ button.danger:hover:not(:disabled) { background: var(--danger-dark); box-shadow:
     background: #e2e8f0;
 }
 
-#robot-map { display: block; width: 100%; height: 100%; }
+#robot-map { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+#robot-map.dragging { cursor: grabbing; }
+#robot-map:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.32); outline-offset: -3px; }
+.map-toolbar { display: flex; gap: 6px; align-items: center; }
+.map-toolbar button { min-height: 34px; padding: 5px 10px; font-size: 0.76rem; }
+.map-toolbar .map-control { width: 34px; padding-inline: 0; font-size: 1.1rem; }
 
 .map-legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 0.72rem; }
 .map-legend span { display: inline-flex; align-items: center; gap: 5px; }
@@ -360,9 +363,14 @@ button.danger:hover:not(:disabled) { background: var(--danger-dark); box-shadow:
 .map-legend .unknown { background: #dbe4ee; }
 
 .track-picker { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 9px; }
-.library-card > p { color: var(--muted); }
-.library-card #message-button { margin-top: 24px; background: #7c3aed; }
-.library-card #message-button:hover { background: #6d28d9; }
+.user-create-form { display: grid; grid-template-columns: 1fr 1.35fr 0.8fr auto; gap: 12px; align-items: end; }
+.users-list { display: grid; gap: 12px; margin-top: 18px; }
+.user-row { display: grid; grid-template-columns: 1fr 0.8fr 0.45fr 1.45fr auto; gap: 10px; align-items: end; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fbfdff; }
+.user-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; color: var(--muted); font-size: 0.75rem; font-weight: 700; }
+.user-field input[type="checkbox"] { width: 24px; min-height: 24px; margin: 10px auto; accent-color: var(--primary); }
+.user-actions { display: flex; gap: 7px; }
+.user-actions button { min-height: 42px; padding-inline: 11px; }
+.success-message { color: var(--success); }
 
 .status { padding: 11px 14px; margin-bottom: 12px; border-radius: 10px; background: #f1f5f9; color: #475569; font-size: 0.9rem; }
 #result { min-height: 74px; max-height: 260px; margin: 0; padding: 16px; overflow: auto; border-radius: 12px; background: var(--ink); color: #dbeafe; font-size: 0.82rem; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -373,6 +381,8 @@ footer { padding: 0 20px 30px; color: var(--muted); text-align: center; font-siz
     .span-5, .span-7 { grid-column: 1 / -1; }
     .map-card { max-width: none; }
     .map-frame { width: min(100%, 520px); margin-inline: auto; }
+    .user-create-form, .user-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .user-actions { grid-column: 1 / -1; }
 }
 
 @media (max-width: 620px) {
@@ -388,8 +398,8 @@ footer { padding: 0 20px 30px; color: var(--muted); text-align: center; font-siz
     .state-pill { align-self: flex-start; }
     .telemetry, .form-grid { grid-template-columns: 1fr; }
     .action-row { flex-direction: column; }
-    .button-grid.three-buttons, .math-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .button-grid.three-buttons button:last-child, .math-buttons button:last-child { grid-column: 1 / -1; }
+    .button-grid.three-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .button-grid.three-buttons button:last-child { grid-column: 1 / -1; }
     .drive-pad { grid-template-columns: repeat(3, minmax(62px, 1fr)); }
 }
 
@@ -403,6 +413,8 @@ footer { padding: 0 20px 30px; color: var(--muted); text-align: center; font-siz
     .square-button { width: 42px; }
     .drive-pad { grid-template-columns: repeat(3, minmax(58px, 1fr)); grid-template-rows: repeat(3, 58px); }
     .drive-pad button span { display: none; }
+    .user-create-form, .user-row { grid-template-columns: 1fr; }
+    .user-actions { display: grid; grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

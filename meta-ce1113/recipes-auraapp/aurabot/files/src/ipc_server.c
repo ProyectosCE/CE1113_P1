@@ -200,14 +200,25 @@ static int dispatch(aurabot_state_t *state, unsigned int command,
         if (request_size != 0U) return AURABOT_ERR_PROTOCOL;
         return robot_controller_emergency_stop(state);
     case AURABOT_CMD_GET_MAP:
+    {
+        unsigned int map_width;
+        unsigned int map_height;
+        int origin_x_mm;
+        int origin_y_mm;
         if (request_size != 0U) return AURABOT_ERR_PROTOCOL;
-        aurabot_wire_put_uint(response, AURABOT_MAP_WIDTH);
-        aurabot_wire_put_uint(response + 4, AURABOT_MAP_HEIGHT);
-        aurabot_wire_put_uint(response + 8, state->map.revision);
-        result = map_copy(&state->map, response + 12, AURABOT_MAP_CELLS,
-                          response_size);
-        if (result == AURABOT_OK) *response_size += 12U;
+        result = map_copy(&state->map, response + 20,
+            AURABOT_MAX_RESPONSE_PAYLOAD - 20U, response_size,
+            &map_width, &map_height, &origin_x_mm, &origin_y_mm);
+        if (result == AURABOT_OK) {
+            aurabot_wire_put_uint(response, map_width);
+            aurabot_wire_put_uint(response + 4, map_height);
+            aurabot_wire_put_int(response + 8, origin_x_mm);
+            aurabot_wire_put_int(response + 12, origin_y_mm);
+            aurabot_wire_put_uint(response + 16, state->map.revision);
+            *response_size += 20U;
+        }
         return result;
+    }
     case AURABOT_CMD_AUDIO_PLAY:
         if (request_size != 4U) return AURABOT_ERR_PROTOCOL;
         return audio_controller_play(state, aurabot_wire_get_uint(request));

@@ -110,9 +110,12 @@ static void map_response(void)
     int result = aurabot_get_map_snapshot(&map);
     if (result != AURABOT_OK) { web_robot_result("robot-map", result); return; }
     json_header();
-    printf("{\"ok\":true,\"operacion\":\"robot-map\",\"width\":%d,\"height\":%d,\"revision\":%u,\"cells\":[",
-        AURABOT_MAP_WIDTH, AURABOT_MAP_HEIGHT, map.revision);
-    for (index = 0; index < AURABOT_MAP_CELLS; ++index)
+    printf("{\"ok\":true,\"operacion\":\"robot-map\",\"width\":%u,\"height\":%u,"
+        "\"origin_x_mm\":%d,\"origin_y_mm\":%d,\"cell_mm\":%d,"
+        "\"revision\":%u,\"cells\":[",
+        map.width, map.height, map.origin_x_mm, map.origin_y_mm,
+        AURABOT_MAP_CELL_MM, map.revision);
+    for (index = 0; index < map.width * map.height; ++index)
         printf("%s%u", index == 0 ? "" : ",", map.cells[index]);
     printf("]}\n");
     aurabot_disconnect();

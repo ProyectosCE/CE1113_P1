@@ -11,10 +11,15 @@ recipes-lib/audio
 recipes-auraapp/aurabot-audio-server
   └─ aurabot-audio.service y FIFO /run/aurabot-audio/control
 partición 3 AURA_AUDIO (ext4)
-  └─ media-audio.mount la monta en /media/audio
+  └─ canciones y playlist montadas en /media/audio
+receta aurabot-audio-server
+  └─ avisos internos instalados en /usr/share/aurabot/sounds
 ```
 
-La imagen ya no contiene canciones. `flash_sd.sh` crea una partición ext4 de
+La imagen no contiene las canciones del usuario. Los cuatro avisos del robot
+(`startup`, modo manual, modo automático y obstáculo) sí se incorporan desde
+la carpeta `sonidos/` mediante la receta del servidor; no se copian a la
+partición `AURA_AUDIO`. `flash_sd.sh` crea una partición ext4 de
 2 GiB al final de la SD durante el primer flash y conserva sus bloques en los
 flashes siguientes. `audio-storage` la monta por etiqueta en `/media/audio`
 antes de iniciar el servidor.
@@ -39,12 +44,20 @@ STOP
 VOLUME 0..100
 DEVICE <número-de-tarjeta>
 TRACK <índice-de-playlist>
+EVENT boot|manual|autonomous|obstacle
 ```
 
 `TRACK` carga la canción indicada por su posición (desde cero) en
 `/media/audio/playlist.txt`. La CGI expone esa lista a la web y solo envía el
 índice, por lo que una petición HTTP no puede inyectar una ruta arbitraria.
 `PLAY` se conserva para la prueba histórica con `/media/audio/test.mp3`.
+
+`EVENT` solo acepta esos cuatro nombres y resuelve rutas internas fijas. El
+servidor conserva el fotograma actual de la canción, reproduce los eventos en
+orden y luego vuelve a cargar la canción con `JUMP` para continuarla. Si la
+canción estaba pausada, se mantiene pausada al terminar el aviso. Los eventos
+de obstáculo se deduplican mientras haya uno reproduciéndose o esperando en la
+cola, para que detecciones consecutivas no repitan la alerta.
 
 La web presenta un volumen lógico de 0 a 100 y lo convierte al rango útil del
 mezclador: 0% web equivale a 50% ALSA y 100% web equivale a 100% ALSA.
