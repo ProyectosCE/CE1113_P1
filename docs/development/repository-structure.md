@@ -1,234 +1,93 @@
 # Estructura del repositorio
 
-## 1. Objetivo
-
-Este documento describe la estructura base del repositorio y establece de forma general dónde debe colocarse cada tipo de archivo.
-
-La estructura podrá evolucionar conforme avance el proyecto, evitando agregar carpetas o configuraciones que todavía no sean necesarias.
-
----
-
-## 2. Estructura base
-
 ```text
 CE1113_P1/
-│
-├── .github/
-│   └── workflows/
-│
-├── docs/
-│   ├── README.md
-│   └── development/
-│
-├── src/
-│   ├── main.c
-│   ├── include/
-│   └── core/
-│
-├── tests/
-│   ├── unit/
-│   └── integration/
-│
-├── yocto/
-│   ├── emuARM/
-│   └── meta-aurabot/
-│
-├── .gitignore
-├── LICENSE
-└── README.md
+├── .github/workflows/validation.yml
+├── docs/{architecture,development,yocto}/
+├── meta-ce1113/                    # única capa activa del producto
+│   ├── conf/layer.conf
+│   ├── recipes-core/               # imagen y packagegroups
+│   ├── recipes-lib/                # libgpio, PWM, audio, LEDs y sensores
+│   ├── recipes-test/               # aplicaciones de prueba
+│   ├── recipes-hw/                 # activación/configuración física de la RPi
+│   └── recipes-auraapp/            # app, servidor de audio y webapp
+├── layers/meta-pwm/                # referencia experimental, fuera del build
+├── scripts/
+│   ├── check-repository.sh         # entrada estable local/CI
+│   ├── validate-repository.sh      # implementación de las reglas
+│   ├── create-recipe.sh
+│   └── lib/image-common.sh         # selección e integridad de artefactos
+├── build.sh
+├── check_image.sh
+└── flash_sd.sh
 ```
 
----
+`meta-ce1113` contiene toda la metadata activa. La imagen `ce1113-p1` instala
+únicamente `packagegroup-ce1113`; este compone los grupos `lib`, `hw` y
+`auraapp`. Las recetas de `test` permanecen disponibles para imágenes de
+laboratorio, pero no ocupan el rootfs del producto. Añadir una aplicación requiere modificar solo el packagegroup de
+su área, nunca la receta de imagen ni `layer.conf`.
 
-## 3. Descripción de directorios
+## Categorías
 
-### `.github/`
+| Categoría | Responsabilidad |
+|---|---|
+| `recipes-lib` | Bibliotecas dinámicas `gpio`, `pwm`, `audio`, `leds` y `sensors` |
+| `recipes-test` | Pruebas aisladas: `app-operaciones`, `encoder-count` y `prueba-encoder` |
+| `recipes-hw` | Kernel, bootfiles, firmware, Wi-Fi, audio físico y montaje de música |
+| `recipes-auraapp` | Aplicación principal, servidor de audio, CGI, HTTP y frontend |
 
-Contiene configuraciones relacionadas con GitHub.
+El contenido de las categorías funcionales es cerrado:
 
 ```text
-.github/
-└── workflows/
+recipes-lib/      {libgpio,pwm,audio,leds,sensors}
+recipes-test/     {app-operaciones,encoder-count,prueba-encoder}
+recipes-auraapp/  {aurabot,aurabot-audio-server,webapp}
+recipes-hw/       {audio-config,audio-storage,bootfiles,
+                   brcmfmac-firmware-fix,busybox,linux,wifi-config}
 ```
 
-La carpeta `workflows/` será utilizada para los flujos de GitHub Actions que se definan posteriormente para compilación, pruebas o validaciones automáticas.
-
----
-
-### `docs/`
-
-Contiene la documentación del proyecto.
+Las aplicaciones no vuelven a compilar implementaciones de hardware. Las
+cadenas de uso de bibliotecas dinámicas son:
 
 ```text
-docs/
-├── README.md
-└── development/
+aurabot -> libpwm.so.1 -> libgpio.so.1
+aurabot-audio-server -> libaudio.so.1
+webapp -> libaurabot.so.1 -> aurabot -> FIFO de audio -> servidor -> libaudio.so.1
 ```
 
-* `README.md`: sirve como punto de entrada a la documentación.
-* `development/`: contiene documentación relacionada con el proceso de desarrollo, estándares y organización del repositorio.
+La webapp no abre ALSA directamente: delega la reproducción al servidor para
+que exista un solo dueño del dispositivo de audio. PWM, LEDs y sensores
+consumen `libgpio.so` como dependencia de receta.
 
-Ejemplos futuros:
+Las ampliaciones de BusyBox también tienen dueño único. Wi-Fi se habilita desde
+`recipes-hw/busybox`; HTTP/CGI se habilita desde `recipes-auraapp/webapp`.
 
-```text
-docs/development/
-├── repository-structure.md
-├── commit-convention.md
-└── pull-request-guidelines.md
-```
+Yocto/RPM aplica nombres basados en SONAME a los paquetes finales (`libgpio1`,
+`libpwm1`, `libaudio1`, `libleds1`, `libsensors1`). Por ello el packagegroup de
+bibliotecas usa `${TUNE_PKGARCH}` y no `allarch`; las recetas y dependencias de
+compilación conservan sus nombres `libgpio`, `pwm`, `audio`, `leds`, `sensors`.
 
-Solo se agregarán documentos cuando sean necesarios para el proyecto.
+Una receta normal se registra en el packagegroup de su área. Una receta de
+configuración puede ser dependencia de la receta que la consume si no representa
+una funcionalidad seleccionable. Los `.bbappend` se reservan para recetas
+externas de Poky o `meta-raspberrypi`.
 
----
+El código instalado vive en `files/` junto a su receta, permitiendo que BitBake
+calcule hashes reproducibles. No se admite C/CMake suelto en la raíz. Los
+directorios `build-*`, `downloads` y `sstate-cache` son resultados locales.
 
-### `src/`
+## Reglas comprobadas
 
-Contiene el código fuente principal del proyecto desarrollado en C y/o C++.
+- Existe una sola imagen: `ce1113-p1` para `raspberrypi4`.
+- Todas las recetas usan minúsculas y nombres permitidos.
+- No existen `.bbappend` de la imagen; la composición usa packagegroups.
+- Los tres packagegroups (`lib`, `hw`, `auraapp`) forman el producto;
+  `test` es opcional y queda excluido de la imagen final;
+  no existen grupos heredados `api` o `webapp`.
+- Solo `meta-ce1113` se activa; `meta-pwm` permanece excluida.
+- El código C/CMake se encuentra dentro de `files/` de una receta.
+- No se versionan builds, cachés, logs ni archivos mayores de 10 MiB.
+- Build y flash invocan la comprobación de integridad.
 
-```text
-src/
-├── main.c
-├── include/
-└── core/
-```
-
-#### `main.c`
-
-Contiene el punto de entrada principal de la aplicación.
-
-#### `include/`
-
-Contiene los archivos de cabecera del proyecto, principalmente archivos `.h` o `.hpp`.
-
-Estos archivos pueden definir:
-
-* Interfaces.
-* Funciones.
-* Estructuras de datos.
-* Constantes.
-* Tipos compartidos entre diferentes módulos.
-
-#### `core/`
-
-Contiene la lógica principal del robot.
-
-Aquí se ubicarán componentes relacionados con comportamiento, navegación, control y otras funciones principales que no dependan directamente de una implementación específica de hardware.
-
-La organización interna de `core/` podrá cambiar conforme se defina la arquitectura del software.
-
----
-
-### `tests/`
-
-Contiene las pruebas automatizadas del proyecto.
-
-```text
-tests/
-├── unit/
-└── integration/
-```
-
-#### `unit/`
-
-Contiene pruebas de componentes individuales, funciones o módulos de forma aislada.
-
-#### `integration/`
-
-Contiene pruebas que verifican la interacción entre varios componentes del sistema.
-
-La herramienta o framework utilizado para las pruebas se definirá posteriormente.
-
----
-
-### `yocto/`
-
-Agrupa todos los archivos relacionados con Yocto.
-
-```text
-yocto/
-├── emuARM/
-└── meta-aurabot/
-```
-
-Esto permite mantener los archivos específicos de Yocto separados del código principal de la aplicación.
-
-#### `emuARM/`
-
-Contiene configuraciones relacionadas con el entorno de compilación o emulación utilizado durante el desarrollo.
-
-Los archivos generados, cachés y otros artefactos temporales de Yocto no deben almacenarse en Git.
-
-#### `meta-aurabot/`
-
-Contiene la capa personalizada de Yocto utilizada por el proyecto.
-
-Dentro de esta carpeta se encontrarán configuraciones, recetas y demás metadatos específicos necesarios para integrar el proyecto dentro de una imagen Yocto.
-
-Los detalles internos de la configuración de Yocto se documentarán por separado cuando sea necesario.
-
----
-
-## 4. Archivos en la raíz
-
-### `README.md`
-
-Documento principal del repositorio.
-
-Debe ofrecer una introducción general al proyecto y enlaces hacia documentación más detallada cuando sea necesario.
-
-### `.gitignore`
-
-Define los archivos y directorios que Git no debe rastrear, como:
-
-* Archivos temporales.
-* Cachés.
-* Resultados de compilación.
-* Archivos generados.
-* Configuraciones locales de herramientas.
-
-### `LICENSE`
-
-Contiene la licencia utilizada por el proyecto.
-
----
-
-## 5. Reglas generales de organización
-
-Para mantener el repositorio ordenado, se seguirán estas reglas:
-
-1. El código principal en C/C++ debe mantenerse dentro de `src/`.
-2. Las pruebas deben mantenerse dentro de `tests/`.
-3. La documentación debe mantenerse dentro de `docs/`.
-4. Los archivos específicos de Yocto deben mantenerse dentro de `yocto/`.
-5. Los archivos generados, temporales o de caché no deben subirse al repositorio.
-6. No se deben crear nuevas carpetas sin que exista una necesidad concreta dentro del proyecto.
-7. La estructura podrá ampliarse conforme se definan nuevos componentes del sistema.
-
----
-
-## 6. Sistema de compilación
-
-El proyecto utilizará CMake como sistema de compilación.
-
-La ubicación y organización de los archivos `CMakeLists.txt` se definirá cuando la arquitectura del código esté suficientemente establecida.
-
-Dependiendo de las necesidades del proyecto, podrá existir un archivo principal en la raíz y archivos adicionales dentro de los directorios que contengan código fuente.
-
----
-
-## 7. Resumen
-
-| Directorio            | Propósito                                |
-| --------------------- | ---------------------------------------- |
-| `.github/`            | Configuración y automatización de GitHub |
-| `docs/`               | Documentación del proyecto               |
-| `src/`                | Código fuente principal                  |
-| `src/include/`        | Archivos de cabecera                     |
-| `src/core/`           | Lógica principal del robot               |
-| `tests/unit/`         | Pruebas unitarias                        |
-| `tests/integration/`  | Pruebas de integración                   |
-| `yocto/`              | Archivos relacionados con Yocto          |
-| `yocto/emuARM/`       | Configuración del entorno Yocto          |
-| `yocto/meta-aurabot/` | Capa personalizada del proyecto          |
-
-Esta estructura se considera la base inicial del repositorio y podrá evolucionar conforme avance el desarrollo del proyecto.
+Ejecute `./scripts/check-repository.sh` antes de abrir un PR.

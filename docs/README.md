@@ -1,1 +1,16 @@
-Colocar aquí toda la documentación solicitada en el enunciado del proyecto
+# Documentación de CE1113 P1
+
+- [Estructura real del repositorio](development/repository-structure.md)
+- [Imágenes Yocto](yocto/images.md)
+- [Cómo extender recetas y packagegroups](yocto/extending.md)
+- [Uso de build, check y flash](development/scripts.md)
+- [Integración continua](development/continuos-integration.md)
+- [API de hardware](architecture/hardware-api.md)
+- [Integración y resultados de audio](architecture/audio.md)
+- [Servicios systemd](development/systemd-services.md)
+- [Matriz de cumplimiento](compliance.md)
+- [Evidencias de entrega](evidence/README.md)
+- [Conflicto entre audio analógico y PWM](architecture/audio-pwm-conflict.md)
+- [Crear recetas por categoría](development/create-recipe-script.md)
+- [Verificar y grabar imágenes con GUI](development/image-scripts.md)
+- [Estructura del repositorio](development/repository-structure.md)

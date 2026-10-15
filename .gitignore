@@ -1,45 +1,56 @@
-# Yocto / BitBake
-# Build output
+# Yocto / OpenEmbedded
 build/
 build-*/
-
-# BitBake temporary files
 tmp/
 tmp-*/
-
-# Downloads
-downloads/
-downloads-*/
-
-# Shared state
 sstate-cache/
 sstate-cache-*/
+downloads/
 
-# Build history
-buildhistory/
+# BitBake
+cache/
+*.pyc
+__pycache__/
+bitbake-cookerdaemon.log
+bitbake-cookerdaemon.log.lock
 
-# Package feeds
-deploy/
-
-# BitBake cache
-.cache/
-yocto/emuARM/cache/
-
-# Editors
-.vscode/
-.idea/
-
-# Vim
+# Logs / temporales
+*.log
+*.pid
+*.lock
 *.swp
 *.swo
-
-# Backup files
 *~
-*.bak
+.#*
 
-# Python
-__pycache__/
-*.py[cod]
+# Imágenes y artefactos generados
+*.wic
+*.wic.bz2
+*.wic.gz
+*.wic.xz
+*.wic.zst
+*.ext4
+*.tar
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 
-# Logs
-*.log
+# SDKs generados
+sdk/
+sdk-*/
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Música local: se copia a AURA_AUDIO con load_audio.sh, nunca al WIC ni a Git
+media/*
+!media/README.md
+audios/*
+!audios/README.md

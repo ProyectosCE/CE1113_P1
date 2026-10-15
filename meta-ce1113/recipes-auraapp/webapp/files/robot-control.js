@@ -1,0 +1,402 @@
+(() => {
+    "use strict";
+    const endpoint = "/cgi-bin/operaciones.cgi";
+    const byId = id => document.getElementById(id);
+    const modeSwitch = byId("robot-mode");
+    const moveButtons = [...document.querySelectorAll("[data-drive]")];
+    // La cookie autentica al usuario. Este token distinto identifica qué
+    // pestaña posee la concesión temporal de conducción manual.
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    const token = [...bytes].map(value => value.toString(16).padStart(2, "0")).join("");
+    let status = null;
+    let connected = false;
+    let ownsControl = false;
+    let commandPending = false;
+    let queue = Promise.resolve();
+    let epoch = 0;
+    let activeButton = null;
+    let map = null;
+    const mapView = { zoom: 1, panX: 0, panY: 0, pointerId: null, x: 0, y: 0 };
+    let heartbeatPending = false;
+    let mutationRevision = 0;
+    let polling = false;
+    let pollTimer = null;
+    let canOperate = false;
+
+    async function request(parameters, post = false) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 1500);
+        try {
+            return await window.aurabotApi.request(parameters, { post, signal: controller.signal });
+        } finally { clearTimeout(timer); }
+    }
+
+    function updateConnectionIndicator() {
+        const chip = byId("connection-chip");
+        chip.className = `chip ${connected ? "online" : "offline"}`;
+        chip.innerHTML = `<span class="status-dot"></span>${connected ? "En línea" : "Sin conexión"}`;
+    }
+
+    function refreshControls() {
+        const manual = connected && status?.mode === 2;
+        modeSwitch.disabled = !canOperate || !connected || commandPending || (status?.control_busy && !ownsControl);
+        byId("robot-manual-mode").disabled = modeSwitch.disabled || status?.mode === 2;
+        byId("robot-claim").disabled = !canOperate || !manual || ownsControl || status?.control_busy || commandPending;
+        byId("robot-release").disabled = !ownsControl || commandPending;
+        byId("robot-stop").disabled = !ownsControl;
+        const hasMotor = status?.capabilities?.motors?.some(Boolean) ?? false;
+        moveButtons.forEach(button => { button.disabled = !canOperate || !manual || !ownsControl || !hasMotor; });
+        byId("robot-owner").textContent = !connected ? "Sin conexión" :
+            ownsControl ? "Esta pestaña tiene el control" :
+            status?.control_busy ? "Otra pestaña tiene el control" : "Control libre";
+        byId("robot-hardware").textContent = hasMotor ?
+            "Mantenga pulsada una dirección para mover; al soltar se detiene." :
+            "Motores deshabilitados en la configuración de hardware; puede probar sensores y LEDs.";
+        updateConnectionIndicator();
+    }
+
+    function releaseBeacon() {
+        if (!ownsControl) return;
+        const body = new URLSearchParams({
+            op: "robot-release", token, csrf: window.aurabotApi.csrf || ""
+        });
+        if (!navigator.sendBeacon(endpoint, body)) {
+            fetch(endpoint, { method: "POST", body, keepalive: true }).catch(() => {});
+        }
+    }
+
+    function forgetControl() {
+        ownsControl = false;
+        activeButton?.classList.remove("pressed");
+        activeButton = null;
+        epoch++;
+        refreshControls();
+    }
+
+    function report(data) {
+        byId("status").textContent = data.ok ? "Comando aplicado" : data.error;
+        byId("result").textContent = JSON.stringify(data, null, 2);
+    }
+
+    // Serializar órdenes evita que una respuesta lenta de avance llegue
+    // después de la orden de detener enviada al soltar el botón.
+    function command(operation, values = {}, quiet = false) {
+        const queuedEpoch = epoch;
+        const run = async () => {
+            if (queuedEpoch !== epoch) return { ok: false, cancelled: true };
+            mutationRevision++;
+            try {
+                const data = await request({ op: operation, token, ...values }, true);
+                if (!quiet || !data.ok) report(data);
+                if (!data.ok && operation !== "robot-claim") {
+                    releaseBeacon();
+                    forgetControl();
+                }
+                return data;
+            } catch (error) {
+                releaseBeacon();
+                forgetControl();
+                connected = false;
+                refreshControls();
+                const data = { ok: false, error: "Sin comunicación; el robot detendrá los motores al vencer el control." };
+                report(data);
+                return data;
+            } finally { mutationRevision++; }
+        };
+        const result = queue.then(run, run);
+        queue = result.then(() => {}, () => {});
+        return result;
+    }
+
+    function drawMap() {
+        if (!map || !status) return;
+        const canvas = byId("robot-map");
+        const context = canvas.getContext("2d");
+        const bounds = canvas.getBoundingClientRect();
+        const width = Math.max(1, bounds.width);
+        const height = Math.max(1, bounds.height);
+        const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+        const pixelWidth = Math.round(width * pixelRatio);
+        const pixelHeight = Math.round(height * pixelRatio);
+        if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+            canvas.width = pixelWidth;
+            canvas.height = pixelHeight;
+        }
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        context.clearRect(0, 0, width, height);
+        const fitScale = Math.min(width / map.width, height / map.height);
+        const cellSize = fitScale * mapView.zoom;
+        const mapWidth = map.width * cellSize;
+        const mapHeight = map.height * cellSize;
+        const offsetX = (width - mapWidth) / 2 + mapView.panX;
+        const offsetY = (height - mapHeight) / 2 + mapView.panY;
+        const colors = ["#e2e8f0", "#93c5fd", "#ef4444"];
+        map.cells.forEach((value, index) => {
+            const column = index % map.width;
+            const row = Math.floor(index / map.width);
+            context.fillStyle = colors[value] || colors[0];
+            context.fillRect(offsetX + column * cellSize,
+                offsetY + (map.height - row - 1) * cellSize,
+                Math.ceil(cellSize), Math.ceil(cellSize));
+        });
+        if (cellSize >= 9) {
+            context.strokeStyle = "rgba(15, 23, 42, 0.08)";
+            context.lineWidth = 1;
+            for (let column = 0; column <= map.width; column++) {
+                context.beginPath();
+                context.moveTo(offsetX + column * cellSize, offsetY);
+                context.lineTo(offsetX + column * cellSize, offsetY + mapHeight);
+                context.stroke();
+            }
+            for (let row = 0; row <= map.height; row++) {
+                context.beginPath();
+                context.moveTo(offsetX, offsetY + row * cellSize);
+                context.lineTo(offsetX + mapWidth, offsetY + row * cellSize);
+                context.stroke();
+            }
+        }
+        const x = offsetX + ((status.pose.x_mm - map.origin_x_mm) / map.cell_mm + 0.5) * cellSize;
+        const y = offsetY + (map.height - (status.pose.y_mm - map.origin_y_mm) / map.cell_mm - 0.5) * cellSize;
+        const robotSize = Math.max(7, Math.min(13, cellSize * 0.75));
+        context.save();
+        context.translate(x, y);
+        context.rotate(-status.pose.heading_mrad / 1000);
+        context.fillStyle = "#0f172a";
+        context.beginPath();
+        context.moveTo(robotSize, 0);
+        context.lineTo(-robotSize * 0.7, -robotSize * 0.65);
+        context.lineTo(-robotSize * 0.7, robotSize * 0.65);
+        context.closePath(); context.fill(); context.restore();
+        byId("robot-map-revision").textContent = `Revisión ${map.revision} · ${map.width} × ${map.height} celdas · zoom ${Math.round(mapView.zoom * 100)} %`;
+    }
+
+    function setMapZoom(value) {
+        const next = Math.max(0.5, Math.min(8, value));
+        const ratio = next / mapView.zoom;
+        mapView.panX *= ratio;
+        mapView.panY *= ratio;
+        mapView.zoom = next;
+        drawMap();
+    }
+
+    function resetMapView() {
+        mapView.zoom = 1;
+        mapView.panX = 0;
+        mapView.panY = 0;
+        drawMap();
+    }
+
+    function renderStatus(data) {
+        const modes = ["Inicializando", "Autónomo", "Manual", "Parada segura"];
+        const autoStates = ["Inactivo", "Avanzando", "Retrocediendo", "Girando"];
+        byId("robot-state").textContent = `${modes[data.mode]} · ${autoStates[data.auto_state]}`;
+        if (!commandPending) modeSwitch.checked = data.mode === 1;
+        byId("robot-motors").textContent = `${data.motors[0]} % / ${data.motors[1]} %`;
+        byId("robot-movement").textContent = data.motor_movement.map((value, index) =>
+            !data.capabilities.encoders[index] ? "Deshabilitado" :
+                value ? "AVANZANDO" : "QUIETO").join(" / ");
+        const directionNames = { "-1": "Reversa", "0": "Detenido", "1": "Avance" };
+        byId("robot-direction").textContent = data.motor_direction.map((value, index) =>
+            !data.capabilities.motors[index] ? "Deshabilitado" : directionNames[value] ?? "Desconocida").join(" / ");
+        byId("robot-sensors").textContent = data.sensors.map((value, index) =>
+            !data.capabilities.sensors[index] ? "Deshabilitado" : value ? "Obstáculo" : "Libre").join(" / ");
+        byId("robot-leds").textContent = data.leds.map((value, index) =>
+            !data.capabilities.leds[index] ? "Deshabilitado" : value ? "Encendido" : "Apagado").join(" / ");
+        byId("robot-pose").textContent = `${data.pose.x_mm / 10} cm, ${data.pose.y_mm / 10} cm · ${(data.pose.heading_mrad / 1000).toFixed(3)} rad`;
+        byId("robot-audio").textContent = data.capabilities.audio ?
+            `${["Detenido", "Reproduciendo", "Pausado", "Error"][data.audio.state]} · pista ${data.audio.track} · volumen ${data.audio.volume} %` : "Deshabilitado";
+        document.querySelectorAll('[data-operation^="audio-"], #audio-volume, #audio-device-apply, #audio-track')
+            .forEach(element => { element.disabled = !canOperate || !data.capabilities.audio; });
+        if (!data.capabilities.audio) byId("audio-track-hint").textContent = "Audio deshabilitado en hardware_config.h.";
+        if (data.capabilities.audio && document.activeElement !== byId("audio-volume")) {
+            const volume = Math.max(0, Math.min(100, (data.audio.volume - 50) * 2));
+            byId("audio-volume").value = String(volume);
+            byId("audio-volume-value").textContent = `${volume}%`;
+        }
+        byId("robot-updated").textContent = `Actualizado: ${new Date().toLocaleTimeString()}`;
+        refreshControls();
+        drawMap();
+    }
+
+    // Un único ciclo sin peticiones solapadas; reintentar también permite
+    // recuperar la pantalla cuando AuraBot o la red vuelven a estar disponibles.
+    async function poll() {
+        if (!window.aurabotApi?.authenticated) { polling = false; return; }
+        polling = true;
+        try {
+            if (!document.hidden) {
+                const revisionBeforeRead = mutationRevision;
+                const data = await request({ op: "robot-status" });
+                if (!data.ok) throw new Error(data.error);
+                if (revisionBeforeRead !== mutationRevision || commandPending) return;
+                status = data;
+                connected = true;
+                if (ownsControl && (data.mode !== 2 || !data.control_busy)) forgetControl();
+                renderStatus(data);
+                if (!map || map.revision !== data.map_revision) {
+                    const snapshot = await request({ op: "robot-map" });
+                    if (!snapshot.ok) throw new Error(snapshot.error);
+                    map = snapshot;
+                    drawMap();
+                }
+            }
+        } catch (error) {
+            releaseBeacon();
+            forgetControl();
+            connected = false;
+            byId("robot-state").textContent = `Sin conexión: ${error.message}`;
+            byId("robot-updated").textContent = "Lecturas anteriores; esperando reconexión";
+            refreshControls();
+        } finally {
+            if (window.aurabotApi?.authenticated) pollTimer = setTimeout(poll, connected ? 250 : 1000);
+            else polling = false;
+        }
+    }
+
+    function startPolling() {
+        if (!polling && window.aurabotApi?.authenticated) void poll();
+    }
+
+    byId("robot-claim").addEventListener("click", async () => {
+        commandPending = true; refreshControls();
+        try {
+            const data = await command("robot-claim");
+            ownsControl = data.ok && !document.hidden;
+            if (ownsControl) status.control_busy = true;
+            else if (data.ok) {
+                ownsControl = true; releaseBeacon(); forgetControl();
+            }
+        } finally { commandPending = false; refreshControls(); }
+    });
+
+    byId("robot-release").addEventListener("click", async () => {
+        commandPending = true; refreshControls();
+        try { await command("robot-release"); forgetControl(); }
+        finally { commandPending = false; refreshControls(); }
+    });
+
+    function stopMovement() {
+        if (!activeButton) return;
+        activeButton.classList.remove("pressed");
+        activeButton = null;
+        if (ownsControl) void command("robot-stop", {}, true);
+    }
+
+    function startMovement(button) {
+        if (button.disabled || activeButton || !ownsControl) return;
+        const speed = Number(byId("robot-speed").value);
+        const directions = { forward: [1, 1], reverse: [-1, -1], left: [-1, 1], right: [1, -1] };
+        const [left, right] = directions[button.dataset.drive];
+        activeButton = button;
+        button.classList.add("pressed");
+        void command("robot-drive", { left: left * speed, right: right * speed }, true);
+    }
+
+    moveButtons.forEach(button => {
+        button.addEventListener("pointerdown", event => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            button.setPointerCapture(event.pointerId);
+            startMovement(button);
+        });
+        for (const event of ["pointerup", "pointercancel", "lostpointercapture"])
+            button.addEventListener(event, () => { if (activeButton === button) stopMovement(); });
+        button.addEventListener("keydown", event => {
+            if (![" ", "Enter"].includes(event.key)) return;
+            event.preventDefault();
+            if (!event.repeat) startMovement(button);
+        });
+        button.addEventListener("keyup", event => {
+            if ([" ", "Enter"].includes(event.key)) { event.preventDefault(); stopMovement(); }
+        });
+        button.addEventListener("blur", stopMovement);
+    });
+    byId("robot-stop").addEventListener("click", () => {
+        stopMovement();
+        if (ownsControl) void command("robot-stop");
+    });
+    byId("robot-speed").addEventListener("input", event => {
+        byId("robot-speed-value").textContent = `${event.target.value} %`;
+    });
+    async function changeMode(mode) {
+        commandPending = true; refreshControls();
+        stopMovement();
+        try {
+            const data = await command("robot-mode", { mode });
+            if (data.ok) { forgetControl(); status.mode = mode; }
+        } finally { commandPending = false; refreshControls(); }
+    }
+    modeSwitch.addEventListener("change", () => { void changeMode(modeSwitch.checked ? 1 : 2); });
+    byId("robot-manual-mode").addEventListener("click", () => { void changeMode(2); });
+    byId("robot-emergency-stop").addEventListener("click", async () => {
+        forgetControl();
+        try { report(await request({ op: "robot-emergency-stop" }, true)); }
+        catch (error) { report({ ok: false, error: "No se pudo enviar la parada de emergencia" }); }
+    });
+
+    const mapCanvas = byId("robot-map");
+    byId("map-zoom-in").addEventListener("click", () => setMapZoom(mapView.zoom * 1.25));
+    byId("map-zoom-out").addEventListener("click", () => setMapZoom(mapView.zoom / 1.25));
+    byId("map-reset").addEventListener("click", resetMapView);
+    mapCanvas.addEventListener("wheel", event => {
+        event.preventDefault();
+        setMapZoom(mapView.zoom * (event.deltaY < 0 ? 1.15 : 1 / 1.15));
+    }, { passive: false });
+    mapCanvas.addEventListener("pointerdown", event => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        mapView.pointerId = event.pointerId;
+        mapView.x = event.clientX;
+        mapView.y = event.clientY;
+        mapCanvas.setPointerCapture(event.pointerId);
+        mapCanvas.classList.add("dragging");
+    });
+    mapCanvas.addEventListener("pointermove", event => {
+        if (mapView.pointerId !== event.pointerId) return;
+        mapView.panX += event.clientX - mapView.x;
+        mapView.panY += event.clientY - mapView.y;
+        mapView.x = event.clientX;
+        mapView.y = event.clientY;
+        drawMap();
+    });
+    function stopMapDrag(event) {
+        if (mapView.pointerId !== event.pointerId) return;
+        mapView.pointerId = null;
+        mapCanvas.classList.remove("dragging");
+    }
+    mapCanvas.addEventListener("pointerup", stopMapDrag);
+    mapCanvas.addEventListener("pointercancel", stopMapDrag);
+    mapCanvas.addEventListener("dblclick", resetMapView);
+    window.addEventListener("resize", drawMap);
+
+    setInterval(async () => {
+        if (!ownsControl || document.hidden || heartbeatPending || commandPending) return;
+        heartbeatPending = true;
+        try { await command("robot-heartbeat", {}, true); }
+        finally { heartbeatPending = false; }
+    }, 700);
+
+    window.addEventListener("blur", stopMovement);
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) { releaseBeacon(); forgetControl(); }
+    });
+    window.addEventListener("pagehide", () => { releaseBeacon(); forgetControl(); });
+    window.addEventListener("aurabot:authenticated", event => {
+        canOperate = event.detail.role === "operator" || event.detail.role === "admin";
+        startPolling();
+    });
+    window.addEventListener("aurabot:unauthenticated", () => {
+        if (pollTimer !== null) clearTimeout(pollTimer);
+        pollTimer = null;
+        polling = false;
+        connected = false;
+        canOperate = false;
+        forgetControl();
+    });
+    window.addEventListener("aurabot:before-logout", event => {
+        if (!ownsControl) return;
+        event.detail.waitUntil(command("robot-release", {}, true).finally(forgetControl));
+    });
+    refreshControls();
+    startPolling();
+})();
